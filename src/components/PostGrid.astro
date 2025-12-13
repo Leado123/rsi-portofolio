@@ -1,0 +1,56 @@
+---
+interface Post {
+  id: number;
+  title: { rendered: string };
+  date: string;
+  excerpt: { rendered: string };
+  link: string;
+  _embedded?: {
+    'wp:featuredmedia'?: Array<{
+      source_url: string;
+    }>;
+    'wp:term'?: Array<Array<{
+      name: string;
+      taxonomy: string;
+    }>>;
+  };
+}
+
+interface Props {
+  posts: Post[];
+}
+
+const { posts } = Astro.props;
+---
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4">
+  {posts.map((post) => {
+    const image = post._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+    const date = new Date(post.date).toLocaleDateString();
+    
+    return (
+      <article class="border rounded-lg p-4 bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors">
+        {image && (
+          <img 
+            src={image} 
+            alt={post.title.rendered}
+            class="w-full h-48 object-cover rounded-md mb-4"
+          />
+        )}
+        <div class="flex flex-col gap-2">
+          <span class="text-sm opacity-70">{date}</span>
+          <h2 class="text-xl font-bold" set:html={post.title.rendered} />
+          <div class="text-sm opacity-90" set:html={post.excerpt.rendered} />
+          <a 
+            href={post.link} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="mt-2 text-blue-400 hover:text-blue-300 inline-block"
+          >
+            Read more &rarr;
+          </a>
+        </div>
+      </article>
+    );
+  })}
+</div>

@@ -1,0 +1,105 @@
+---
+
+export const prerender = false;
+import "../styles/global.css";
+import Font from "astro/components/Font.astro";
+import ColorBends from "@/components/ColorBends.tsx";
+import SplitText from "@/components/SplitText.tsx";
+import Navbar from "@/components/Navbar.astro";
+import { SiteWrapper } from "@/components/SiteWrapper.tsx";
+import { NavGrid } from "@/components/NavGrid.tsx";
+import PostGrid from "@/components/PostGrid.astro";
+
+const WORDPRESS_URL = import.meta.env.WORDPRESS_URL || "https://leowen.me";
+let posts = [];
+try {
+  // Use the internal URL if available to avoid self-request loops/latency
+  const fetchUrl = `${WORDPRESS_URL}/wp-json/wp/v2/posts?_embed`;
+  const res = await fetch(fetchUrl);
+  if (res.ok) {
+    posts = await res.json();
+  } else {
+    console.error(`Failed to fetch posts from ${fetchUrl}: ${res.status} ${res.statusText}`);
+  }
+} catch (error) {
+  console.error("Error fetching posts:", error);
+}
+---
+
+<!doctype html>
+<Font cssVariable="--font-forma-text" />
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <meta name="generator" content={Astro.generator} />
+        <title></title>
+    </head>
+    <body
+        class="w-full h-full min-h-screen min-w-screen overflow-hidden m-0 p-0"
+    >
+        <SiteWrapper client:load>
+            <div
+                class="fixed inset-0 w-screen h-screen min-h-screen min-w-screen z-0 pointer-events-none"
+            >
+                <ColorBends
+                    client:load
+                    colors={[
+                        "#ff1493",
+                        "#00ff88",
+                        "#00d4ff",
+                        "#ff6b00",
+                        "#ff00ff",
+                        "#00ffff",
+                        "#ffff00",
+                        "#ff0080",
+                    ]}
+                    rotation={30}
+                    speed={0.2}
+                    scale={1.0}
+                    frequency={1.5}
+                    warpStrength={1.2}
+                    mouseInfluence={1.0}
+                    parallax={0.8}
+                    noise={0.1}
+                    transparent={true}
+                />
+            </div>
+
+            <div class="absolute w-full h-screen inset-0 flex flex-col z-50">
+                <Navbar />
+                <div
+                    class="p-4 pl-8 pr-8 bg-[0,0,0,.5] w-full flex flex-col items-end backdrop-blur-lg border-b-2 shadow-lg"
+                >
+                    <div class="text-right min-h-[2rem]">
+                        <SplitText
+                            client:only
+                            delay={100}
+                            duration={0.6}
+                            ease="power3.out"
+                            splitType="chars"
+                            from={{ opacity: 0, y: 40 }}
+                            to={{ opacity: 1, y: 0 }}
+                            threshold={0.1}
+                            className="w-full text-right"
+                            text="Quick links from portfolio"
+                        />
+                    </div>
+                    <NavGrid client:load />
+                </div>
+                <div class="prose w-full max-w-none p-4">
+                    <div class="h-2/3 flex flex-col justify-center">
+                        <text
+                            style="font-family: var(--font-forma-display);"
+                            class="text-center flex text-black font-black justify-center place-items-center text-6xl w-full"
+                        >
+                            RSI Portfolio</text
+                        >
+                        <p class="text-center w-1/3 mx-auto">You can access my relevant projects at the top of my portfolio, however if you want to go in depth into each project, I recommend you read the posts below that are pinned about each relevant topic.</p>
+                    </div>
+                    <PostGrid posts={posts} />
+                </div>
+            </div>
+        </SiteWrapper>
+    </body>
+</html>

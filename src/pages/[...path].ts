@@ -18,11 +18,13 @@ export const ALL: APIRoute = async ({ request }) => {
     
     // CRITICAL: Forward the original Host header (e.g., leowen.me)
     // This tells WordPress to generate links for the public domain, not the internal container name.
-    headers.set('Host', url.hostname);
+    headers.set('Host', 'leowen.me'); // Force Host to match public domain
     headers.set('X-Astro-Proxy', '1');
     
     // Forward the original protocol (https) so WordPress knows it's secure
-    headers.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
+    // We check the incoming X-Forwarded-Proto first, otherwise default to https since we are behind Coolify
+    const incomingProto = request.headers.get('x-forwarded-proto');
+    headers.set('X-Forwarded-Proto', incomingProto || 'https');
     
     // Clean up Cloudflare headers if they exist (optional now, but good practice)
     headers.delete('cf-connecting-ip');

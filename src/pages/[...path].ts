@@ -41,6 +41,33 @@ export const ALL: APIRoute = async ({ request }) => {
 
     const responseHeaders = new Headers(response.headers);
     
+    // Ensure CORS headers are properly set for WordPress admin AJAX requests
+    // WordPress admin makes cross-origin requests that need proper CORS headers
+    if (url.pathname.includes('/wp-admin') || url.pathname.includes('/wp-json') || url.pathname.includes('/admin-ajax.php')) {
+        const origin = request.headers.get('origin');
+        if (origin) {
+            responseHeaders.set('Access-Control-Allow-Origin', origin);
+            responseHeaders.set('Access-Control-Allow-Credentials', 'true');
+        }
+        // Forward CORS headers from WordPress if they exist
+        if (response.headers.get('Access-Control-Allow-Methods')) {
+            responseHeaders.set('Access-Control-Allow-Methods', response.headers.get('Access-Control-Allow-Methods')!);
+        }
+        if (response.headers.get('Access-Control-Allow-Headers')) {
+            responseHeaders.set('Access-Control-Allow-Headers', response.headers.get('Access-Control-Allow-Headers')!);
+        }
+    }
+    
+    // Ensure Content-Type header is preserved correctly
+    // WordPress admin is very sensitive to correct Content-Type headers
+    if (!responseHeaders.has('Content-Type') && response.headers.has('content-type')) {
+        responseHeaders.set('Content-Type', response.headers.get('content-type')!);
+    }
+    
+    // Remove any Content-Security-Policy that might block WordPress admin resources
+    // WordPress admin needs to load scripts and styles from various sources
+    responseHeaders.delete('Content-Security-Policy');
+    
     // Check for redirects that might accidentally use the internal URL
     const location = responseHeaders.get('location');
     if (location) {
@@ -58,6 +85,8 @@ export const ALL: APIRoute = async ({ request }) => {
     // Rewrite HTTP URLs to HTTPS in response body to prevent mixed content warnings
     // This is critical for WordPress content that might contain HTTP image URLs, stylesheets, etc.
     const contentType = responseHeaders.get('content-type') || '';
+    const publicHost = url.hostname;
+    const publicProtocol = url.protocol;
     
     // Only rewrite HTML, CSS, JavaScript, and JSON content
     if (contentType.includes('text/html') || 
@@ -67,14 +96,52 @@ export const ALL: APIRoute = async ({ request }) => {
         contentType.includes('text/javascript')) {
         
         const text = await response.text();
-        const publicHost = url.hostname;
+        let rewrittenText = text;
         
-        // Replace HTTP URLs with HTTPS URLs for the public domain
-        const rewrittenText = text
-            // Replace http://publicHost with https://publicHost
-            .replace(new RegExp(`http://${publicHost.replace(/\./g, '\\.')}`, 'gi'), `https://${publicHost}`)
-            // Replace http:// with https:// for any URLs (to catch external resources too)
-            .replace(/http:\/\/([^\s"']+)/gi, 'https://$1');
+        // For HTML: rewrite URLs in attributes (src, href, action, data-*, etc.)
+        if (contentType.includes('text/html')) {
+            // Replace http://publicHost with https://publicHost in HTML attributes
+            rewrittenText = rewrittenText
+                .replace(new RegExp(`(src|href|action|data-[^=]*)=["']http://${publicHost.replace(/\./g, '\\.')}([^"']*)["']`, 'gi'), 
+                    (match, attr, path) => `${attr}="https://${publicHost}${path}"`)
+                .replace(new RegExp(`(src|href|action|data-[^=]*)=["']http://([^"']+)["']`, 'gi'), 
+                    (match, attr, url) => `${attr}="https://${url}"`)
+                // Also handle URLs in style attributes and inline styles
+                .replace(new RegExp(`style=["'][^"']*url\\(http://${publicHost.replace(/\./g, '\\.')}([^)]+)\\)`, 'gi'),
+                    (match) => match.replace(/http:\/\//g, 'https://'))
+                .replace(/style=["'][^"']*url\(http:\/\/([^)]+)\)/gi,
+                    (match) => match.replace(/http:\/\//g, 'https://'));
+        }
+        
+        // For CSS: rewrite URLs in url() functions
+        if (contentType.includes('text/css')) {
+            rewrittenText = rewrittenText
+                .replace(new RegExp(`url\\(["']?http://${publicHost.replace(/\./g, '\\.')}([^"')]+)["']?\\)`, 'gi'), 
+                    `url("https://${publicHost}$1")`)
+                .replace(/url\(["']?http:\/\/([^"')]+)["']?\)/gi, 'url("https://$1")');
+        }
+        
+        // For JavaScript: be VERY careful - only rewrite URLs in string literals for the public host
+        // This prevents breaking WordPress admin AJAX calls and external API requests
+        if (contentType.includes('application/javascript') || contentType.includes('text/javascript')) {
+            // Only rewrite URLs that match the public host in string literals
+            // Match: "http://leowen.me/path" or 'http://leowen.me/path'
+            rewrittenText = rewrittenText
+                .replace(new RegExp(`(["'])http://${publicHost.replace(/\./g, '\\.')}([^"']*)(["'])`, 'gi'), 
+                    `$1https://${publicHost}$2$3`)
+                // Also handle template literals
+                .replace(new RegExp(`(\`)http://${publicHost.replace(/\./g, '\\.')}([^\`]*)(\`)`, 'gi'),
+                    `$1https://${publicHost}$2$3`);
+            // DO NOT rewrite all HTTP URLs in JS - this breaks WordPress admin AJAX
+        }
+        
+        // For JSON: rewrite URLs in string values
+        if (contentType.includes('application/json')) {
+            rewrittenText = rewrittenText
+                .replace(new RegExp(`"http://${publicHost.replace(/\./g, '\\.')}([^"]*)"`, 'gi'), 
+                    `"https://${publicHost}$1"`)
+                .replace(/"http:\/\/([^"]+)"/gi, '"https://$1"');
+        }
         
         return new Response(rewrittenText, {
           status: response.status,

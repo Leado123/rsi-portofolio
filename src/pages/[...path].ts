@@ -30,16 +30,38 @@ export const ALL: APIRoute = async ({ request }) => {
     // If WordPress sends compressed content, we can't modify it properly
     headers.delete('Accept-Encoding');
     
+    // Forward important headers that WordPress might need
+    // These headers help WordPress understand the request context
+    if (request.headers.get('referer')) {
+        // Rewrite referer to use HTTPS
+        const referer = request.headers.get('referer')!;
+        if (referer.startsWith('http://')) {
+            headers.set('Referer', referer.replace('http://', 'https://'));
+        }
+    }
+    
     // Clean up Cloudflare headers if they exist (optional now, but good practice)
     headers.delete('cf-connecting-ip');
     headers.delete('cf-ipcountry');
     headers.delete('cf-ray');
     headers.delete('cf-visitor');
 
+    // Properly handle request body for POST/PUT/PATCH requests
+    let requestBody: BodyInit | undefined = undefined;
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+        // For form data and other content types, preserve the body as-is
+        const contentType = request.headers.get('content-type');
+        if (contentType?.includes('multipart/form-data') || contentType?.includes('application/x-www-form-urlencoded')) {
+            requestBody = await request.arrayBuffer();
+        } else {
+            requestBody = await request.blob();
+        }
+    }
+
     const response = await fetch(targetUrl.toString(), {
         method: request.method,
         headers: headers,
-        body: request.method !== 'GET' && request.method !== 'HEAD' ? await request.blob() : undefined,
+        body: requestBody,
         redirect: 'manual' 
     });
 
@@ -52,7 +74,7 @@ export const ALL: APIRoute = async ({ request }) => {
     
     // Ensure CORS headers are properly set for WordPress admin AJAX requests
     // WordPress admin makes cross-origin requests that need proper CORS headers
-    if (url.pathname.includes('/wp-admin') || url.pathname.includes('/wp-json') || url.pathname.includes('/admin-ajax.php')) {
+    if (url.pathname.includes('/wp-admin') || url.pathname.includes('/wp-json') || url.pathname.includes('/admin-ajax.php') || url.pathname.includes('site-editor.php')) {
         const origin = request.headers.get('origin');
         if (origin) {
             responseHeaders.set('Access-Control-Allow-Origin', origin);
@@ -65,6 +87,15 @@ export const ALL: APIRoute = async ({ request }) => {
         if (response.headers.get('Access-Control-Allow-Headers')) {
             responseHeaders.set('Access-Control-Allow-Headers', response.headers.get('Access-Control-Allow-Headers')!);
         }
+    }
+    
+    // Handle 500 errors - log them and try to return a better error message
+    if (response.status === 500) {
+        console.error(`WordPress 500 error for ${url.pathname}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
+        });
     }
     
     // Ensure Content-Type header is preserved correctly
@@ -104,6 +135,7 @@ export const ALL: APIRoute = async ({ request }) => {
     const publicProtocol = url.protocol;
     
     // Only rewrite HTML, CSS, JavaScript, and JSON content
+    // For error responses, we still want to rewrite URLs but be more careful
     if (contentType.includes('text/html') || 
         contentType.includes('text/css') || 
         contentType.includes('application/javascript') ||
@@ -125,7 +157,17 @@ export const ALL: APIRoute = async ({ request }) => {
                 .replace(new RegExp(`style=["'][^"']*url\\(http://${publicHost.replace(/\./g, '\\.')}([^)]+)\\)`, 'gi'),
                     (match) => match.replace(/http:\/\//g, 'https://'))
                 .replace(/style=["'][^"']*url\(http:\/\/([^)]+)\)/gi,
-                    (match) => match.replace(/http:\/\//g, 'https://'));
+                    (match) => match.replace(/http:\/\//g, 'https://'))
+                // Also rewrite URLs in script tags and other contexts
+                .replace(new RegExp(`http://${publicHost.replace(/\./g, '\\.')}`, 'gi'), `https://${publicHost}`)
+                // Rewrite any remaining http:// URLs in the HTML (but be careful not to break JavaScript)
+                .replace(/(<[^>]+(?:src|href|action|data-[^=]*)=["'])http:\/\/([^"']+)(["'])/gi, '$1https://$2$3');
+            
+            // Add upgrade-insecure-requests meta tag if not present to force HTTPS
+            if (!rewrittenText.includes('upgrade-insecure-requests') && !rewrittenText.includes('http-equiv="Content-Security-Policy"')) {
+                rewrittenText = rewrittenText.replace(/<head([^>]*)>/i, 
+                    (match) => `${match}<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">`);
+            }
         }
         
         // For CSS: rewrite URLs in url() functions
@@ -175,7 +217,20 @@ export const ALL: APIRoute = async ({ request }) => {
 
   } catch (error: any) {
     console.error('Proxy error:', error);
-    return new Response(`Error connecting to upstream server: ${error.message || error}`, { status: 502 });
+    console.error('Request URL:', request.url);
+    console.error('Target URL:', targetUrl.toString());
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    return new Response(`Error connecting to upstream server: ${error.message || error}`, { 
+      status: 502,
+      headers: {
+        'Content-Type': 'text/plain',
+        'X-Error-Details': error.message || 'Unknown error'
+      }
+    });
   }
 };
 export const prerender = false;

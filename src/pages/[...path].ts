@@ -26,6 +26,10 @@ export const ALL: APIRoute = async ({ request }) => {
     const incomingProto = request.headers.get('x-forwarded-proto');
     headers.set('X-Forwarded-Proto', incomingProto || 'https');
     
+    // CRITICAL: Don't request compression - we need to modify the response body
+    // If WordPress sends compressed content, we can't modify it properly
+    headers.delete('Accept-Encoding');
+    
     // Clean up Cloudflare headers if they exist (optional now, but good practice)
     headers.delete('cf-connecting-ip');
     headers.delete('cf-ipcountry');
@@ -40,6 +44,11 @@ export const ALL: APIRoute = async ({ request }) => {
     });
 
     const responseHeaders = new Headers(response.headers);
+    
+    // CRITICAL: Remove compression headers since we're modifying the body
+    // If Content-Encoding is present but we modify the body, browser will fail to decode
+    responseHeaders.delete('Content-Encoding');
+    responseHeaders.delete('Content-Length'); // Will be recalculated
     
     // Ensure CORS headers are properly set for WordPress admin AJAX requests
     // WordPress admin makes cross-origin requests that need proper CORS headers
@@ -67,6 +76,12 @@ export const ALL: APIRoute = async ({ request }) => {
     // Remove any Content-Security-Policy that might block WordPress admin resources
     // WordPress admin needs to load scripts and styles from various sources
     responseHeaders.delete('Content-Security-Policy');
+    
+    // Add security headers to ensure HTTPS is enforced
+    // This helps browsers recognize the site as secure
+    if (!responseHeaders.has('Strict-Transport-Security')) {
+        responseHeaders.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
     
     // Check for redirects that might accidentally use the internal URL
     const location = responseHeaders.get('location');
@@ -151,6 +166,7 @@ export const ALL: APIRoute = async ({ request }) => {
     }
 
     // For non-text content (images, videos, etc.), return the body as-is
+    // But still remove compression headers if present (shouldn't be, but just in case)
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

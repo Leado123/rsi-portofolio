@@ -25,7 +25,17 @@ const { posts } = Astro.props;
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4">
   {posts.map((post) => {
-    const image = post._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+    // Ensure image URLs use HTTPS to prevent mixed content warnings
+    const rawImage = post._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+    const image = rawImage ? rawImage.replace(/^http:\/\//, 'https://') : null;
+    
+    // Ensure post link uses HTTPS
+    const postLink = post.link ? post.link.replace(/^http:\/\//, 'https://') : post.link;
+    
+    // Ensure title and excerpt content URLs use HTTPS
+    const title = post.title.rendered ? post.title.rendered.replace(/http:\/\//g, 'https://') : post.title.rendered;
+    const excerpt = post.excerpt.rendered ? post.excerpt.rendered.replace(/http:\/\//g, 'https://') : post.excerpt.rendered;
+    
     const date = new Date(post.date).toLocaleDateString();
     
     return (
@@ -39,10 +49,10 @@ const { posts } = Astro.props;
         )}
         <div class="flex flex-col gap-2">
           <span class="text-sm opacity-70">{date}</span>
-          <h2 class="text-xl font-bold" set:html={post.title.rendered} />
-          <div class="text-sm opacity-90" set:html={post.excerpt.rendered} />
+          <h2 class="text-xl font-bold" set:html={title} />
+          <div class="text-sm opacity-90" set:html={excerpt} />
           <a 
-            href={post.link} 
+            href={postLink} 
             target="_blank" 
             rel="noopener noreferrer"
             class="mt-2 text-blue-400 hover:text-blue-300 inline-block"

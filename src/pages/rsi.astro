@@ -11,6 +11,13 @@ import { NavGrid } from "@/components/NavGrid.tsx";
 import PostGrid from "@/components/PostGrid.astro";
 
 const WORDPRESS_URL = import.meta.env.WORDPRESS_URL || "https://leowen.me";
+
+// Helper function to ensure URLs use HTTPS to prevent mixed content warnings
+function ensureHttps(url: string | undefined): string | undefined {
+  if (!url) return url;
+  return url.replace(/^http:\/\//, 'https://');
+}
+
 let posts = [];
 try {
   // Use the internal URL if available to avoid self-request loops/latency
@@ -18,6 +25,18 @@ try {
   const res = await fetch(fetchUrl);
   if (res.ok) {
     posts = await res.json();
+    // Normalize URLs in posts to use HTTPS
+    posts = posts.map((post: any) => ({
+      ...post,
+      link: ensureHttps(post.link),
+      _embedded: post._embedded ? {
+        ...post._embedded,
+        'wp:featuredmedia': post._embedded['wp:featuredmedia']?.map((media: any) => ({
+          ...media,
+          source_url: ensureHttps(media.source_url),
+        })),
+      } : undefined,
+    }));
   } else {
     console.error(`Failed to fetch posts from ${fetchUrl}: ${res.status} ${res.statusText}`);
   }

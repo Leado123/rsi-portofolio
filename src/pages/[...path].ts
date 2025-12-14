@@ -39,13 +39,9 @@ export const ALL: APIRoute = async ({ request }) => {
         redirect: 'manual' 
     });
 
-    // We no longer need to rewrite the body if we pass the correct Host header,
-    // as WordPress should generate the correct links automatically.
-    
     const responseHeaders = new Headers(response.headers);
     
-    // However, we should still check for redirects that might accidentally use the internal URL
-    // just in case WordPress ignores the Host header for some reason.
+    // Check for redirects that might accidentally use the internal URL
     const location = responseHeaders.get('location');
     if (location) {
         // If the redirect location contains the internal URL, rewrite it to the public URL
@@ -53,8 +49,41 @@ export const ALL: APIRoute = async ({ request }) => {
         if (location.includes(internalHost)) {
              responseHeaders.set('location', location.replace(internalHost, url.hostname));
         }
+        // Also rewrite HTTP URLs to HTTPS in redirects
+        if (location.startsWith('http://')) {
+            responseHeaders.set('location', location.replace('http://', 'https://'));
+        }
     }
 
+    // Rewrite HTTP URLs to HTTPS in response body to prevent mixed content warnings
+    // This is critical for WordPress content that might contain HTTP image URLs, stylesheets, etc.
+    const contentType = responseHeaders.get('content-type') || '';
+    
+    // Only rewrite HTML, CSS, JavaScript, and JSON content
+    if (contentType.includes('text/html') || 
+        contentType.includes('text/css') || 
+        contentType.includes('application/javascript') ||
+        contentType.includes('application/json') ||
+        contentType.includes('text/javascript')) {
+        
+        const text = await response.text();
+        const publicHost = url.hostname;
+        
+        // Replace HTTP URLs with HTTPS URLs for the public domain
+        const rewrittenText = text
+            // Replace http://publicHost with https://publicHost
+            .replace(new RegExp(`http://${publicHost.replace(/\./g, '\\.')}`, 'gi'), `https://${publicHost}`)
+            // Replace http:// with https:// for any URLs (to catch external resources too)
+            .replace(/http:\/\/([^\s"']+)/gi, 'https://$1');
+        
+        return new Response(rewrittenText, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: responseHeaders,
+        });
+    }
+
+    // For non-text content (images, videos, etc.), return the body as-is
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

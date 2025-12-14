@@ -3,6 +3,15 @@ import type { APIRoute } from 'astro';
 // Use environment variable for the WordPress URL (e.g., http://wordpress:80)
 const WORDPRESS_URL = import.meta.env.WORDPRESS_URL || 'http://wordpress'; 
 
+// Helper function to rewrite all HTTP URLs to HTTPS
+function rewriteHttpToHttps(text: string, publicHost: string): string {
+    // Replace http://publicHost with https://publicHost globally
+    let result = text.replace(new RegExp(`http://${publicHost.replace(/\./g, '\\.')}`, 'gi'), `https://${publicHost}`);
+    // Also replace any escaped URLs (WordPress sometimes escapes slashes)
+    result = result.replace(new RegExp(`http:\\\\/\\\\/${publicHost.replace(/\./g, '\\.')}`, 'gi'), `https:\\/\\/${publicHost}`);
+    return result;
+}
+
 export const ALL: APIRoute = async ({ request }) => {
   // Loop detection
   if (request.headers.get('X-Astro-Proxy')) {
@@ -10,6 +19,23 @@ export const ALL: APIRoute = async ({ request }) => {
   }
 
   const url = new URL(request.url);
+  const publicHost = url.hostname;
+  
+  // Handle CORS preflight OPTIONS requests
+  // WordPress Site Editor and REST API make preflight requests
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': request.headers.get('origin') || '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-WP-Nonce, X-Requested-With',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+      }
+    });
+  }
+  
   // Construct target URL using the internal WordPress service URL
   const targetUrl = new URL(url.pathname + url.search, WORDPRESS_URL);
 
@@ -18,13 +44,17 @@ export const ALL: APIRoute = async ({ request }) => {
     
     // CRITICAL: Forward the original Host header (e.g., leowen.me)
     // This tells WordPress to generate links for the public domain, not the internal container name.
-    headers.set('Host', 'leowen.me'); // Force Host to match public domain
+    headers.set('Host', publicHost);
     headers.set('X-Astro-Proxy', '1');
     
     // Forward the original protocol (https) so WordPress knows it's secure
     // We check the incoming X-Forwarded-Proto first, otherwise default to https since we are behind Coolify
     const incomingProto = request.headers.get('x-forwarded-proto');
     headers.set('X-Forwarded-Proto', incomingProto || 'https');
+    
+    // Forward additional headers WordPress might need for REST API / Site Editor
+    headers.set('X-Forwarded-Host', publicHost);
+    headers.set('X-Forwarded-For', request.headers.get('x-forwarded-for') || '127.0.0.1');
     
     // CRITICAL: Don't request compression - we need to modify the response body
     // If WordPress sends compressed content, we can't modify it properly
@@ -48,13 +78,13 @@ export const ALL: APIRoute = async ({ request }) => {
 
     // Properly handle request body for POST/PUT/PATCH requests
     let requestBody: BodyInit | undefined = undefined;
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-        // For form data and other content types, preserve the body as-is
-        const contentType = request.headers.get('content-type');
-        if (contentType?.includes('multipart/form-data') || contentType?.includes('application/x-www-form-urlencoded')) {
+    if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+        // Clone the request body to avoid consuming it
+        try {
             requestBody = await request.arrayBuffer();
-        } else {
-            requestBody = await request.blob();
+        } catch (e) {
+            // Body might already be consumed or empty
+            requestBody = undefined;
         }
     }
 
@@ -72,30 +102,38 @@ export const ALL: APIRoute = async ({ request }) => {
     responseHeaders.delete('Content-Encoding');
     responseHeaders.delete('Content-Length'); // Will be recalculated
     
-    // Ensure CORS headers are properly set for WordPress admin AJAX requests
-    // WordPress admin makes cross-origin requests that need proper CORS headers
-    if (url.pathname.includes('/wp-admin') || url.pathname.includes('/wp-json') || url.pathname.includes('/admin-ajax.php') || url.pathname.includes('site-editor.php')) {
-        const origin = request.headers.get('origin');
-        if (origin) {
-            responseHeaders.set('Access-Control-Allow-Origin', origin);
-            responseHeaders.set('Access-Control-Allow-Credentials', 'true');
-        }
-        // Forward CORS headers from WordPress if they exist
-        if (response.headers.get('Access-Control-Allow-Methods')) {
-            responseHeaders.set('Access-Control-Allow-Methods', response.headers.get('Access-Control-Allow-Methods')!);
-        }
-        if (response.headers.get('Access-Control-Allow-Headers')) {
-            responseHeaders.set('Access-Control-Allow-Headers', response.headers.get('Access-Control-Allow-Headers')!);
-        }
+    // ALWAYS set CORS headers for WordPress requests
+    // WordPress admin, REST API, and Site Editor all need proper CORS
+    const origin = request.headers.get('origin');
+    if (origin) {
+        responseHeaders.set('Access-Control-Allow-Origin', origin);
+        responseHeaders.set('Access-Control-Allow-Credentials', 'true');
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+        responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-WP-Nonce, X-Requested-With');
     }
     
-    // Handle 500 errors - log them and try to return a better error message
+    // Handle 500 errors - log them for debugging
     if (response.status === 500) {
         console.error(`WordPress 500 error for ${url.pathname}:`, {
             status: response.status,
             statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries())
+            requestMethod: request.method,
+            requestUrl: request.url,
+            targetUrl: targetUrl.toString()
         });
+        // Try to get the error message from WordPress
+        try {
+            const errorText = await response.text();
+            console.error('WordPress error response:', errorText.substring(0, 1000));
+            // Return the error as-is so we can see what WordPress is saying
+            return new Response(rewriteHttpToHttps(errorText, publicHost), {
+                status: response.status,
+                statusText: response.statusText,
+                headers: responseHeaders,
+            });
+        } catch (e) {
+            // If we can't read the error, just pass it through
+        }
     }
     
     // Ensure Content-Type header is preserved correctly
@@ -107,12 +145,13 @@ export const ALL: APIRoute = async ({ request }) => {
     // Remove any Content-Security-Policy that might block WordPress admin resources
     // WordPress admin needs to load scripts and styles from various sources
     responseHeaders.delete('Content-Security-Policy');
+    responseHeaders.delete('Content-Security-Policy-Report-Only');
     
     // Add security headers to ensure HTTPS is enforced
     // This helps browsers recognize the site as secure
-    if (!responseHeaders.has('Strict-Transport-Security')) {
-        responseHeaders.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    }
+    responseHeaders.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // Remove any headers that might interfere with HTTPS
+    responseHeaders.delete('X-Frame-Options'); // Let WordPress decide this
     
     // Check for redirects that might accidentally use the internal URL
     const location = responseHeaders.get('location');
@@ -131,73 +170,28 @@ export const ALL: APIRoute = async ({ request }) => {
     // Rewrite HTTP URLs to HTTPS in response body to prevent mixed content warnings
     // This is critical for WordPress content that might contain HTTP image URLs, stylesheets, etc.
     const contentType = responseHeaders.get('content-type') || '';
-    const publicHost = url.hostname;
-    const publicProtocol = url.protocol;
     
-    // Only rewrite HTML, CSS, JavaScript, and JSON content
-    // For error responses, we still want to rewrite URLs but be more careful
+    // Only rewrite text-based content
     if (contentType.includes('text/html') || 
         contentType.includes('text/css') || 
         contentType.includes('application/javascript') ||
         contentType.includes('application/json') ||
-        contentType.includes('text/javascript')) {
+        contentType.includes('text/javascript') ||
+        contentType.includes('text/xml') ||
+        contentType.includes('application/xml')) {
         
         const text = await response.text();
-        let rewrittenText = text;
         
-        // For HTML: rewrite URLs in attributes (src, href, action, data-*, etc.)
+        // First, do a global replace of all http://publicHost to https://publicHost
+        let rewrittenText = rewriteHttpToHttps(text, publicHost);
+        
+        // For HTML: add upgrade-insecure-requests meta tag
         if (contentType.includes('text/html')) {
-            // Replace http://publicHost with https://publicHost in HTML attributes
-            rewrittenText = rewrittenText
-                .replace(new RegExp(`(src|href|action|data-[^=]*)=["']http://${publicHost.replace(/\./g, '\\.')}([^"']*)["']`, 'gi'), 
-                    (match, attr, path) => `${attr}="https://${publicHost}${path}"`)
-                .replace(new RegExp(`(src|href|action|data-[^=]*)=["']http://([^"']+)["']`, 'gi'), 
-                    (match, attr, url) => `${attr}="https://${url}"`)
-                // Also handle URLs in style attributes and inline styles
-                .replace(new RegExp(`style=["'][^"']*url\\(http://${publicHost.replace(/\./g, '\\.')}([^)]+)\\)`, 'gi'),
-                    (match) => match.replace(/http:\/\//g, 'https://'))
-                .replace(/style=["'][^"']*url\(http:\/\/([^)]+)\)/gi,
-                    (match) => match.replace(/http:\/\//g, 'https://'))
-                // Also rewrite URLs in script tags and other contexts
-                .replace(new RegExp(`http://${publicHost.replace(/\./g, '\\.')}`, 'gi'), `https://${publicHost}`)
-                // Rewrite any remaining http:// URLs in the HTML (but be careful not to break JavaScript)
-                .replace(/(<[^>]+(?:src|href|action|data-[^=]*)=["'])http:\/\/([^"']+)(["'])/gi, '$1https://$2$3');
-            
             // Add upgrade-insecure-requests meta tag if not present to force HTTPS
-            if (!rewrittenText.includes('upgrade-insecure-requests') && !rewrittenText.includes('http-equiv="Content-Security-Policy"')) {
+            if (!rewrittenText.includes('upgrade-insecure-requests')) {
                 rewrittenText = rewrittenText.replace(/<head([^>]*)>/i, 
                     (match) => `${match}<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">`);
             }
-        }
-        
-        // For CSS: rewrite URLs in url() functions
-        if (contentType.includes('text/css')) {
-            rewrittenText = rewrittenText
-                .replace(new RegExp(`url\\(["']?http://${publicHost.replace(/\./g, '\\.')}([^"')]+)["']?\\)`, 'gi'), 
-                    `url("https://${publicHost}$1")`)
-                .replace(/url\(["']?http:\/\/([^"')]+)["']?\)/gi, 'url("https://$1")');
-        }
-        
-        // For JavaScript: be VERY careful - only rewrite URLs in string literals for the public host
-        // This prevents breaking WordPress admin AJAX calls and external API requests
-        if (contentType.includes('application/javascript') || contentType.includes('text/javascript')) {
-            // Only rewrite URLs that match the public host in string literals
-            // Match: "http://leowen.me/path" or 'http://leowen.me/path'
-            rewrittenText = rewrittenText
-                .replace(new RegExp(`(["'])http://${publicHost.replace(/\./g, '\\.')}([^"']*)(["'])`, 'gi'), 
-                    `$1https://${publicHost}$2$3`)
-                // Also handle template literals
-                .replace(new RegExp(`(\`)http://${publicHost.replace(/\./g, '\\.')}([^\`]*)(\`)`, 'gi'),
-                    `$1https://${publicHost}$2$3`);
-            // DO NOT rewrite all HTTP URLs in JS - this breaks WordPress admin AJAX
-        }
-        
-        // For JSON: rewrite URLs in string values
-        if (contentType.includes('application/json')) {
-            rewrittenText = rewrittenText
-                .replace(new RegExp(`"http://${publicHost.replace(/\./g, '\\.')}([^"]*)"`, 'gi'), 
-                    `"https://${publicHost}$1"`)
-                .replace(/"http:\/\/([^"]+)"/gi, '"https://$1"');
         }
         
         return new Response(rewrittenText, {
@@ -208,7 +202,6 @@ export const ALL: APIRoute = async ({ request }) => {
     }
 
     // For non-text content (images, videos, etc.), return the body as-is
-    // But still remove compression headers if present (shouldn't be, but just in case)
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

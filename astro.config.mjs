@@ -13,6 +13,7 @@ const { TYPEKIT_ID } = loadEnv(process.env.NODE_ENV, process.cwd(), "");
 // https://astro.build/config
 export default defineConfig({
   integrations: [react()],
+  base: "/rsi",
 
   experimental: {
     fonts: [{

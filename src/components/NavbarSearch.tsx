@@ -213,7 +213,7 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(true)}
-        className="relative px-4 py-2 rounded-lg bg-white/80 backdrop-blur-md border border-gray-200/60 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 min-w-[200px] justify-center pointer-events-auto z-10 cursor-pointer"
+        className="relative w-1/3 p-2 rounded-lg bg-white/80 backdrop-blur-md border border-gray-200/60 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 min-w-[200px] justify-center pointer-events-auto z-10 cursor-pointer"
         style={{ pointerEvents: 'auto' }}
       >
         <svg

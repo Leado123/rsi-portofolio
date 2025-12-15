@@ -49,9 +49,26 @@ if (!post) {
   return Astro.redirect('/404');
 }
 
-// Clean up content URLs
+// Clean up content URLs and optimize images
 const title = post.title.rendered ? post.title.rendered.replace(/http:\/\//g, 'https://') : '';
-const content = post.content.rendered ? post.content.rendered.replace(/http:\/\//g, 'https://') : '';
+let content = post.content.rendered ? post.content.rendered.replace(/http:\/\//g, 'https://') : '';
+
+// Process images in content to add lazy loading attributes
+if (content) {
+  // Add loading="lazy" and decoding="async" to all img tags that don't already have loading attribute
+  content = content.replace(
+    /<img\s+((?:(?!loading=)[^>])*?)>/gi,
+    (match, attrs) => {
+      // Skip if already has loading attribute
+      if (match.includes('loading=')) {
+        return match;
+      }
+      // Add lazy loading attributes
+      return `<img ${attrs} loading="lazy" decoding="async">`;
+    }
+  );
+}
+
 const date = new Date(post.date).toLocaleDateString('en-US', { 
   year: 'numeric', 
   month: 'long', 
@@ -61,8 +78,8 @@ const imageUrl = post._embedded?.['wp:featuredmedia']?.[0]?.source_url?.replace(
 ---
 
 <BaseLayout title={title}>
-    <div class="flex-1 w-full max-w-5xl mx-auto px-4 py-8">
-        <div class="bg-white rounded-lg p-10 shadow-xl">
+    <div class="flex-1 w-full max-w-5xl mx-auto px-4 py-8" style="contain: layout style paint;">
+        <div class="bg-white rounded-lg p-10 border shadow-xl" style="contain: layout style paint;">
             <a 
                 href="/" 
                 class="text-blue-500 hover:text-blue-700 mb-4 inline-block no-underline pointer-events-auto z-10 relative"
@@ -72,17 +89,21 @@ const imageUrl = post._embedded?.['wp:featuredmedia']?.[0]?.source_url?.replace(
             </a>
             
             {imageUrl && (
-                <div class="w-full mb-6 rounded-lg overflow-hidden">
+                <div class="w-full mb-6 rounded-lg overflow-hidden bg-gray-100">
                     <img 
                         src={imageUrl}
                         alt={title}
                         class="w-full h-auto object-cover"
                         loading="eager"
+                        decoding="async"
+                        fetchpriority="high"
+                        width="1200"
+                        height="675"
                     />
                 </div>
             )}
             
-            <article class="prose prose-xl prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-800 prose-p:text-lg prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-code:text-gray-800 prose-pre:bg-gray-100 max-w-none">
+            <article class="prose prose-xl prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-800 prose-p:text-lg prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-code:text-gray-800 prose-pre:bg-gray-100 max-w-none" style="contain: layout style paint; will-change: scroll-position;">
                 <header class="mb-8">
                     <h1 set:html={title}></h1>
                     <time class="text-sm text-gray-600 not-prose" datetime={post.date}>
@@ -90,8 +111,80 @@ const imageUrl = post._embedded?.['wp:featuredmedia']?.[0]?.source_url?.replace(
                     </time>
                 </header>
                 
-                <RenderKaTeX htmlContent={content} client:load />
+                <RenderKaTeX htmlContent={content} client:idle />
             </article>
+            
+            <script is:inline>
+                // Optimize images in post content using Intersection Observer
+                // This runs after React hydration completes
+                (function() {
+                    let imageObserver = null;
+                    let optimized = false;
+                    
+                    function optimizeImages() {
+                        if (optimized) return;
+                        
+                        const article = document.querySelector('article.prose');
+                        if (!article) {
+                            // Retry if article not ready yet
+                            requestIdleCallback ? requestIdleCallback(optimizeImages) : setTimeout(optimizeImages, 200);
+                            return;
+                        }
+                        
+                        const images = article.querySelectorAll('img:not([data-optimized])');
+                        if (images.length === 0) {
+                            optimized = true;
+                            return;
+                        }
+                        
+                        // Use native lazy loading with Intersection Observer for better control
+                        if ('IntersectionObserver' in window) {
+                            imageObserver = new IntersectionObserver((entries) => {
+                                entries.forEach(entry => {
+                                    const img = entry.target;
+                                    if (entry.isIntersecting) {
+                                        // Ensure lazy loading attributes are set
+                                        if (!img.hasAttribute('loading')) {
+                                            img.setAttribute('loading', 'lazy');
+                                        }
+                                        if (!img.hasAttribute('decoding')) {
+                                            img.setAttribute('decoding', 'async');
+                                        }
+                                        img.setAttribute('data-optimized', 'true');
+                                        imageObserver.unobserve(img);
+                                    }
+                                });
+                            }, {
+                                rootMargin: '100px',
+                                threshold: 0.01
+                            });
+                            
+                            images.forEach(img => {
+                                img.setAttribute('data-optimized', 'processing');
+                                imageObserver.observe(img);
+                            });
+                        } else {
+                            // Fallback: ensure all images have lazy loading
+                            images.forEach(img => {
+                                img.setAttribute('loading', 'lazy');
+                                img.setAttribute('decoding', 'async');
+                                img.setAttribute('data-optimized', 'true');
+                            });
+                        }
+                        
+                        optimized = true;
+                    }
+                    
+                    // Run after DOM is ready and React has hydrated, using requestIdleCallback for better performance
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => {
+                            requestIdleCallback ? requestIdleCallback(optimizeImages, { timeout: 2000 }) : setTimeout(optimizeImages, 500);
+                        }, { once: true });
+                    } else {
+                        requestIdleCallback ? requestIdleCallback(optimizeImages, { timeout: 2000 }) : setTimeout(optimizeImages, 500);
+                    }
+                })();
+            </script>
             
             <div class="mt-8 pt-6 border-t not-prose">
                 <a 

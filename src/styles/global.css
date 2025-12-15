@@ -159,3 +159,39 @@ nav {
   will-change: transform;
   transform: translateZ(0);
 }
+
+/* Scroll performance optimizations for post pages */
+article.prose {
+  contain: layout style paint;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+article.prose img {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+  transform: translateZ(0);
+  will-change: contents;
+}
+
+/* Optimize scrolling container */
+body > div > div[class*="overflow-y-auto"] {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Optimize prose content for better scroll performance */
+.prose p,
+.prose li,
+.prose blockquote,
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  contain: layout style;
+  transform: translateZ(0);
+}

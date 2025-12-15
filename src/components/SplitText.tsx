@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-
+//aaa
 export interface SplitTextProps {
   text: string;
   className?: string;

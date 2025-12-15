@@ -1,10 +1,4 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { SplitText as GSAPSplitText } from 'gsap/SplitText';
-import { useGSAP } from '@gsap/react';
-
-gsap.registerPlugin(ScrollTrigger, GSAPSplitText, useGSAP);
 
 export interface SplitTextProps {
   text: string;
@@ -13,8 +7,8 @@ export interface SplitTextProps {
   duration?: number;
   ease?: string | ((t: number) => number);
   splitType?: 'chars' | 'words' | 'lines' | 'words, chars';
-  from?: gsap.TweenVars;
-  to?: gsap.TweenVars;
+  from?: any;
+  to?: any;
   threshold?: number;
   rootMargin?: string;
   tag?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span';
@@ -40,6 +34,7 @@ const SplitText: React.FC<SplitTextProps> = ({
   const ref = useRef<HTMLParagraphElement>(null);
   const animationCompletedRef = useRef(false);
   const [fontsLoaded, setFontsLoaded] = useState<boolean>(false);
+  const [gsapLoaded, setGsapLoaded] = useState(false);
 
   useEffect(() => {
     if (document.fonts.status === 'loaded') {
@@ -51,12 +46,43 @@ const SplitText: React.FC<SplitTextProps> = ({
     }
   }, []);
 
-  useGSAP(
-    () => {
-      if (!ref.current || !text || !fontsLoaded) return;
+  // Dynamically load GSAP only on client side
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger'),
+      import('gsap/SplitText'),
+      import('@gsap/react')
+    ]).then(([gsapMod, scrollTriggerMod, splitTextMod, reactMod]) => {
+      const gsap = gsapMod.gsap;
+      const ScrollTrigger = scrollTriggerMod.ScrollTrigger;
+      const GSAPSplitText = splitTextMod.SplitText;
+      const useGSAP = reactMod.useGSAP;
+
+      gsap.registerPlugin(ScrollTrigger, GSAPSplitText, useGSAP);
+      setGsapLoaded(true);
+    }).catch((err) => {
+      console.error('Failed to load GSAP:', err);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!ref.current || !text || !fontsLoaded || !gsapLoaded) return;
+
+    // Import GSAP modules again for use in the effect
+    Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger'),
+      import('gsap/SplitText')
+    ]).then(([gsapMod, scrollTriggerMod, splitTextMod]) => {
+      const gsap = gsapMod.gsap;
+      const ScrollTrigger = scrollTriggerMod.ScrollTrigger;
+      const GSAPSplitText = splitTextMod.SplitText;
 
       const el = ref.current as HTMLElement & {
-        _rbsplitInstance?: GSAPSplitText;
+        _rbsplitInstance?: typeof GSAPSplitText;
       };
 
       if (el._rbsplitInstance) {
@@ -78,7 +104,7 @@ const SplitText: React.FC<SplitTextProps> = ({
             : `+=${marginValue}${marginUnit}`;
       const start = `top ${startPct}%${sign}`;
       let targets: Element[] = [];
-      const assignTargets = (self: GSAPSplitText) => {
+      const assignTargets = (self: typeof GSAPSplitText) => {
         if (splitType.includes('chars') && self.chars.length) targets = self.chars;
         if (!targets.length && splitType.includes('words') && self.words.length) targets = self.words;
         if (!targets.length && splitType.includes('lines') && self.lines.length) targets = self.lines;
@@ -92,7 +118,7 @@ const SplitText: React.FC<SplitTextProps> = ({
         wordsClass: 'split-word',
         charsClass: 'split-char',
         reduceWhiteSpace: false,
-        onSplit: (self: GSAPSplitText) => {
+        onSplit: (self: typeof GSAPSplitText) => {
           assignTargets(self);
           return gsap.fromTo(
             targets,
@@ -129,24 +155,21 @@ const SplitText: React.FC<SplitTextProps> = ({
         } catch (_) {}
         el._rbsplitInstance = undefined;
       };
-    },
-    {
-      dependencies: [
-        text,
-        delay,
-        duration,
-        ease,
-        splitType,
-        JSON.stringify(from),
-        JSON.stringify(to),
-        threshold,
-        rootMargin,
-        fontsLoaded,
-        onLetterAnimationComplete
-      ],
-      scope: ref
-    }
-  );
+    });
+  }, [
+    text,
+    delay,
+    duration,
+    ease,
+    splitType,
+    JSON.stringify(from),
+    JSON.stringify(to),
+    threshold,
+    rootMargin,
+    fontsLoaded,
+    gsapLoaded,
+    onLetterAnimationComplete
+  ]);
 
   const renderTag = () => {
     const style: React.CSSProperties = {

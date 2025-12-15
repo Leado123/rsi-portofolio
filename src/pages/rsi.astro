@@ -1,0 +1,75 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SplitText from "@/components/SplitText.tsx";
+import { NavGrid } from "@/components/NavGrid.tsx";
+import { AnimatedTitle } from "@/components/AnimatedTitle.tsx";
+import { AnimatedDescription } from "@/components/AnimatedDescription.tsx";
+import PostGrid from "@/components/PostGrid.astro";
+import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
+---
+
+<BaseLayout>
+    <div
+        id="animated-background"
+        class="fixed inset-0 w-screen h-screen min-h-screen min-w-screen z-0 pointer-events-none"
+        style="view-transition-name: background;"
+    >
+        <AnimatedColorBends
+            client:load
+            colors={[
+                "#ff1493",
+                "#00ff88",
+                "#00d4ff",
+                "#ff6b00",
+                "#ff00ff",
+                "#00ffff",
+                "#ffff00",
+                "#ff0080",
+            ]}
+            rotation={30}
+            speed={0.2}
+            scale={1.0}
+            frequency={1.5}
+            warpStrength={1.2}
+            mouseInfluence={1.0}
+            parallax={0.8}
+            noise={0.1}
+            transparent={true}
+        />
+    </div>
+    <div
+        class="p-4 pl-8 pr-8 bg-[0,0,0,.5] w-full flex flex-col items-end backdrop-blur-lg border-b-2 shadow-lg"
+    >
+        <div class="text-right min-h-8">
+            <SplitText
+                client:only
+                delay={100}
+                duration={0.6}
+                ease="power3.out"
+                splitType="chars"
+                from={{ opacity: 0, y: 40 }}
+                to={{ opacity: 1, y: 0 }}
+                threshold={0.1}
+                className="w-full text-right"
+                text="Quick links from portfolio"
+            />
+        </div>
+        <NavGrid client:load />
+    </div>
+    <div class="prose w-full max-w-none p-4">
+        <div class="mb-8 h-2/3 flex justify-center" style="min-height: 200px;">
+            <AnimatedTitle client:visible>
+                <text
+                    style="font-family: var(--font-forma-display);"
+                    class="text-center flex text-black font-black justify-center place-items-center text-6xl w-full"
+                >
+                    RSI Portfolio</text
+                >
+                <AnimatedDescription client:idle>
+                    You can access my relevant projects at the top of my portfolio, however if you want to go in depth into each project, I recommend you read the posts below that are pinned about each relevant topic.
+                </AnimatedDescription>
+            </AnimatedTitle>
+        </div>
+        <PostGrid client:idle/>
+    </div>
+</BaseLayout>

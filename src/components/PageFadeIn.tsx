@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import React from "react";
 
-export const SiteWrapper = ({ children }: { children: React.ReactNode }) => {
+export const PageFadeIn: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -17,3 +17,4 @@ export const SiteWrapper = ({ children }: { children: React.ReactNode }) => {
     </motion.div>
   );
 };
+

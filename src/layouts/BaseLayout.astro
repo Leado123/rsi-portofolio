@@ -1,0 +1,35 @@
+---
+import "../styles/global.css";
+import Font from "astro/components/Font.astro";
+import Navbar from "@/components/Navbar.astro";
+
+interface Props {
+  title?: string;
+}
+
+const { title = "" } = Astro.props;
+---
+
+<!doctype html>
+<Font cssVariable="--font-forma-text" />
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <meta name="generator" content={Astro.generator} />
+        <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+        <title>{title}</title>
+    </head>
+    <body
+        class="w-full h-full min-h-screen min-w-screen overflow-hidden m-0 p-0"
+    >
+        <div class="w-full h-full">
+            <Navbar client:load />
+            
+            <div class="absolute w-full h-screen inset-0 flex flex-col z-40 pt-[73px] overflow-y-auto">
+                <slot />
+            </div>
+        </div>
+    </body>
+</html>
+

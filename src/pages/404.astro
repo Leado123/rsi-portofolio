@@ -1,0 +1,63 @@
+---
+import "../styles/global.css";
+import Font from "astro/components/Font.astro";
+import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
+import Navbar from "@/components/Navbar.astro";
+---
+
+<!doctype html>
+<Font cssVariable="--font-forma-text" />
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <meta name="generator" content={Astro.generator} />
+        <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+        <title>404 - Page Not Found</title>
+    </head>
+    <body class="w-full h-full min-h-screen min-w-screen overflow-hidden m-0 p-0">
+        <div class="w-full h-full relative">
+            <div class="fixed inset-0 w-screen h-screen min-h-screen min-w-screen z-0 pointer-events-none">
+                <AnimatedColorBends
+                    client:load
+                    colors={[
+                        "#ff1493",
+                        "#00ff88",
+                        "#00d4ff",
+                        "#ff6b00",
+                        "#ff00ff",
+                        "#00ffff",
+                        "#ffff00",
+                        "#ff0080",
+                    ]}
+                    rotation={30}
+                    speed={0.2}
+                    scale={1.0}
+                    frequency={1.5}
+                    warpStrength={1.2}
+                    mouseInfluence={1.0}
+                    parallax={0.8}
+                    noise={0.1}
+                    transparent={true}
+                />
+            </div>
+
+            <div class="absolute w-full h-screen inset-0 flex flex-col z-50 overflow-y-auto">
+                <Navbar />
+                <div class="flex-1 w-full max-w-4xl mx-auto px-4 py-8 flex items-center justify-center">
+                    <div class="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-xl text-center">
+                        <h1 class="text-6xl font-bold mb-4">404</h1>
+                        <p class="text-xl mb-6">Page not found</p>
+                        <a 
+                            href="/" 
+                            class="text-blue-500 hover:text-blue-700 inline-block no-underline"
+                        >
+                            ← Back to home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
+

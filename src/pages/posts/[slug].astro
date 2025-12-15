@@ -1,0 +1,109 @@
+---
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { RenderKaTeX } from "@/components/RenderKaTeX.tsx";
+
+const WORDPRESS_API_URL = import.meta.env.PUBLIC_WORDPRESS_API_URL || "https://leowen.me";
+
+interface Post {
+  id: number;
+  title: { rendered: string };
+  date: string;
+  content: { rendered: string };
+  link: string;
+  _embedded?: {
+    'wp:featuredmedia'?: Array<{
+      source_url: string;
+    }>;
+  };
+}
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/404');
+}
+
+// Fetch the post by slug
+let post: Post | null = null;
+try {
+  const apiUrl = `${WORDPRESS_API_URL}/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_embed`;
+  const res = await fetch(apiUrl);
+  if (!res.ok) {
+    console.error(`Failed to fetch post: ${res.status} ${res.statusText}`);
+  } else {
+    const posts: Post[] = await res.json();
+    post = posts.length > 0 ? posts[0] : null;
+    
+    // Debug logging
+    if (!post) {
+      console.warn(`Post not found for slug: ${slug}`);
+    }
+  }
+} catch (error) {
+  console.error('Error fetching post:', error);
+}
+
+// If post not found, redirect to 404
+if (!post) {
+  return Astro.redirect('/404');
+}
+
+// Clean up content URLs
+const title = post.title.rendered ? post.title.rendered.replace(/http:\/\//g, 'https://') : '';
+const content = post.content.rendered ? post.content.rendered.replace(/http:\/\//g, 'https://') : '';
+const date = new Date(post.date).toLocaleDateString('en-US', { 
+  year: 'numeric', 
+  month: 'long', 
+  day: 'numeric' 
+});
+const imageUrl = post._embedded?.['wp:featuredmedia']?.[0]?.source_url?.replace(/^http:\/\//, 'https://') || null;
+---
+
+<BaseLayout title={title}>
+    <div class="flex-1 w-full max-w-5xl mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg p-10 shadow-xl">
+            <a 
+                href="/" 
+                class="text-blue-500 hover:text-blue-700 mb-4 inline-block no-underline pointer-events-auto z-10 relative"
+                data-astro-prefetch="hover"
+            >
+                ← Back to posts
+            </a>
+            
+            {imageUrl && (
+                <div class="w-full mb-6 rounded-lg overflow-hidden">
+                    <img 
+                        src={imageUrl}
+                        alt={title}
+                        class="w-full h-auto object-cover"
+                        loading="eager"
+                    />
+                </div>
+            )}
+            
+            <article class="prose prose-xl prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-800 prose-p:text-lg prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-code:text-gray-800 prose-pre:bg-gray-100 max-w-none">
+                <header class="mb-8">
+                    <h1 set:html={title}></h1>
+                    <time class="text-sm text-gray-600 not-prose" datetime={post.date}>
+                        {date}
+                    </time>
+                </header>
+                
+                <RenderKaTeX htmlContent={content} client:load />
+            </article>
+            
+            <div class="mt-8 pt-6 border-t not-prose">
+                <a 
+                    href={post.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="text-blue-500 hover:text-blue-700 no-underline"
+                >
+                    View original post →
+                </a>
+            </div>
+        </div>
+    </div>
+</BaseLayout>
+

@@ -121,8 +121,41 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-forma-text), system-ui, sans-serif;
+    /* Improve text rendering for readability */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-forma-display), system-ui, sans-serif;
   }
+  
+  /* Improve prose text readability */
+  .prose {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1;
+    font-kerning: normal;
+  }
+  
+  .prose p,
+  .prose li,
+  .prose td,
+  .prose th {
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1.75;
+  }
+  
+  .prose p {
+    color: #374151;
+  }
+}
+
+/* Navbar performance optimizations */
+nav {
+  contain: layout style paint;
+  will-change: transform;
+  transform: translateZ(0);
 }

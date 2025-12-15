@@ -1,66 +1,83 @@
 ---
-interface Post {
-  id: number;
-  title: { rendered: string };
-  date: string;
-  excerpt: { rendered: string };
-  link: string;
-  _embedded?: {
-    'wp:featuredmedia'?: Array<{
-      source_url: string;
-    }>;
-    'wp:term'?: Array<Array<{
-      name: string;
-      taxonomy: string;
-    }>>;
-  };
-}
+import { fetchPosts, processPosts } from "../utils/posts.ts";
 
-interface Props {
-  posts: Post[];
-}
-
-const { posts } = Astro.props;
+const posts = await fetchPosts();
+const processedPosts = processPosts(posts);
 ---
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4">
-  {posts.map((post) => {
-    // Ensure image URLs use HTTPS to prevent mixed content warnings
-    const rawImage = post._embedded?.['wp:featuredmedia']?.[0]?.source_url;
-    const image = rawImage ? rawImage.replace(/^http:\/\//, 'https://') : null;
-    
-    // Ensure post link uses HTTPS
-    const postLink = post.link ? post.link.replace(/^http:\/\//, 'https://') : post.link;
-    
-    // Ensure title and excerpt content URLs use HTTPS
-    const title = post.title.rendered ? post.title.rendered.replace(/http:\/\//g, 'https://') : post.title.rendered;
-    const excerpt = post.excerpt.rendered ? post.excerpt.rendered.replace(/http:\/\//g, 'https://') : post.excerpt.rendered;
-    
-    const date = new Date(post.date).toLocaleDateString();
-    
-    return (
-      <article class="border rounded-lg p-4 bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors">
-        {image && (
-          <img 
-            src={image} 
-            alt={post.title.rendered}
-            class="w-full h-48 object-cover rounded-md mb-4"
-          />
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2" style="contain: layout style paint;">
+  {processedPosts.map((post) => (
+    <article 
+      class="post-card cursor-pointer border rounded-lg p-4 bg-white flex flex-col transition-all duration-150 ease-out"
+      style="will-change: transform, opacity; transform: translateZ(0); contain: layout style paint;"
+    >
+      <a 
+        href={`/posts/${encodeURIComponent(post.slug)}`}
+        class="flex flex-col grow no-underline text-inherit"
+        data-astro-prefetch="hover"
+      >
+        {post.imageUrl && (
+          <div class="w-full h-48 rounded-md overflow-hidden relative bg-gray-100 shrink-0" style="contain: layout style paint;">
+            <img 
+              src={post.imageUrl}
+              alt={post.title || 'Post image'}
+              width={post.imageWidth}
+              height={post.imageHeight}
+              class="absolute inset-0 w-full h-full object-cover object-center"
+              loading="lazy"
+              decoding="async"
+              style="display: block; margin: 0; padding: 0; vertical-align: top; will-change: transform;"
+            />
+          </div>
         )}
-        <div class="flex flex-col gap-2">
-          <span class="text-sm opacity-70">{date}</span>
-          <h2 class="text-xl font-bold" set:html={title} />
-          <div class="text-sm opacity-90" set:html={excerpt} />
-          <a 
-            href={postLink} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            class="mt-2 text-blue-400 hover:text-blue-300 inline-block"
-          >
+        <div class="flex flex-col grow">
+          <span class="text-sm opacity-70">{post.date}</span>
+          <h2 class="text-xl font-bold" set:html={post.title} />
+          <div class="text-sm opacity-90" set:html={post.excerpt} />
+          <span class="mt-auto text-blue-400 inline-block">
             Read more &rarr;
-          </a>
+          </span>
         </div>
-      </article>
-    );
-  })}
+      </a>
+    </article>
+  ))}
 </div>
+
+<style>
+  /* Optimized hover effect using GPU-accelerated properties */
+  .post-card {
+    position: relative;
+  }
+  
+  .post-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: rgb(243, 244, 246);
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+    pointer-events: none;
+    border-radius: 0.5rem;
+    z-index: 0;
+  }
+  
+  .post-card:hover::before {
+    opacity: 1;
+  }
+  
+  .post-card > a {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .post-card:hover {
+    transform: translateY(-1px) translateZ(0);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Optimize image rendering */
+  .post-card img {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+</style>

@@ -30,6 +30,7 @@ export interface ProcessedPost {
   imageWidth: number;
   imageHeight: number;
   link: string;
+  categories: string[];
 }
 
 export async function fetchPosts(): Promise<Post[]> {
@@ -55,7 +56,10 @@ export function processPosts(posts: Post[]): ProcessedPost[] {
   return posts.map((post: Post) => {
     const rawImage = post._embedded?.['wp:featuredmedia']?.[0]?.source_url;
     const imageUrl = rawImage ? rawImage.replace(/^http:\/\//, 'https://') : null;
-    
+
+    // Extract categories from wp:term taxonomy
+    const categories = post._embedded?.['wp:term']?.flat().filter(term => term.taxonomy === 'category').map(term => term.name) || [];
+
     return {
       id: post.id,
       slug: post.slug || post.link.split('/').filter(Boolean).pop() || '',
@@ -66,6 +70,7 @@ export function processPosts(posts: Post[]): ProcessedPost[] {
       imageWidth: post._embedded?.['wp:featuredmedia']?.[0]?.media_details?.width || 800,
       imageHeight: post._embedded?.['wp:featuredmedia']?.[0]?.media_details?.height || 600,
       link: post.link,
+      categories,
     };
   });
 }

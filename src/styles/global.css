@@ -168,6 +168,10 @@ nav {
   transform: translateZ(0);
 }
 
+img {
+  backface-visibility: hidden;
+}
+
 /* Scroll performance optimizations for post pages */
 article.prose {
   contain: layout style paint;

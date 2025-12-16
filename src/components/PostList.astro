@@ -1,0 +1,72 @@
+---
+import { fetchPosts, processPosts, type ProcessedPost } from "../utils/posts.ts";
+import { Image } from "astro:assets";
+
+interface Props {
+  category?: string;
+  maxHeight?: string;
+  class?: string;
+}
+
+const { category = 'All', maxHeight = 'max-h-96', class: className = '' } = Astro.props;
+
+const posts = await fetchPosts();
+const processedPosts = processPosts(posts);
+
+// Filter posts based on category prop (default: 'All')
+const filteredPosts = category === 'All'
+  ? processedPosts
+  : processedPosts.filter(post => post.categories.includes(category));
+---
+
+<div class={`post-list-container ${className}`}>
+  <!-- Posts List -->
+  <div class={`${maxHeight} overflow-y-auto md:overflow-y-auto overflow-x-auto md:overflow-x-hidden scroll-smooth whitespace-nowrap md:whitespace-normal`}>
+  {filteredPosts.map((post) => (
+      <article class="inline-block md:block border-b border-gray-200 py-2 px-1 hover:bg-gray-50 transition-colors min-w-80 md:min-w-0 mr-4 md:mr-0">
+        <a
+          href={`/posts/${encodeURIComponent(post.slug)}`}
+          class="flex items-start gap-2 no-underline text-inherit min-w-0"
+          data-astro-prefetch="hover"
+        >
+          {post.imageUrl && (
+              <Image
+                src={post.imageUrl}
+                alt={post.title || 'Post image'}
+                width={post.imageWidth}
+                height={post.imageHeight}
+                class="object-cover w-12 h-12 rounded-md bg-gray-100 object-center m-0"
+                loading="lazy"
+                decoding="async"
+              />
+          )}
+          <div class="flex-1 gap-0 min-w-0">
+            <div class="flex items-center gap-4">
+              <span class="text-xs text-gray-500">{post.date}</span>
+              {post.categories.length > 0 && category === 'All' && (
+                <span class="text-xs text-black rounded">
+                  {post.categories[0]}
+                </span>
+              )}
+            </div>
+            <h3 class="text-md mt-0 mb-0 font-bold line-clamp-1" set:html={post.title} />
+            <p class="text-xs mt-0 mb-0 m-0 text-gray-600" set:html={(() => {
+              // Clip excerpt to 2 sentences (2 periods followed by a space)
+              let excerpt = post.excerpt;
+              // Remove <p> at the beginning and </p> at the end
+              excerpt = excerpt.replace(/^<p>/, '').replace(/<\/p>$/, '');
+              const m = excerpt.match(/^([\s\S]*?\.[ ]+[\s\S]*?\.[ ]?)/);
+              return m ? m[1].trim() : excerpt;
+            })()} />
+          </div>
+        </a>
+      </article>
+    ))}
+  </div>
+
+  {filteredPosts.length === 0 && (
+    <div class="text-center py-8 text-gray-500">
+      <p>No posts found in this category.</p>
+    </div>
+  )}
+</div>

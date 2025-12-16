@@ -1,0 +1,38 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import PostList from "@/components/PostList.astro";
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
+---
+
+<BaseLayout
+  title="Posts List - Leo Wen"
+  description="Browse blog posts in a compact list view."
+  url="/posts-list"
+>
+    <div class="prose w-full max-w-none p-4">
+        <h1>Posts List View</h1>
+        <p>A compact list view of posts. Pass a category prop to filter posts.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <h3>All Posts</h3>
+                <PostList category="All" />
+            </div>
+
+            <div>
+                <h3>Compact View</h3>
+                <PostList category="All" maxHeight="max-h-64" />
+            </div>
+
+            <div>
+                <h3>Custom Styled</h3>
+                <PostList
+                    category="All"
+                    maxHeight="max-h-80"
+                    class="border border-gray-300 rounded-lg p-2 bg-white shadow-sm"
+                />
+            </div>
+        </div>
+    </div>
+</BaseLayout>

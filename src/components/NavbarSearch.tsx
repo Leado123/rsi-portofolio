@@ -61,10 +61,16 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
       const buttonCenterX = buttonRect.left + buttonRect.width / 2;
       const buttonCenterY = buttonRect.top + buttonRect.height / 2;
 
+      // Calculate the offset needed to center the modal
+      const offsetX = buttonCenterX - centerX;
+      const offsetY = buttonCenterY - centerY;
+
       // Set initial state (FLIP: First)
+      // Use xPercent: -50 to center horizontally, then offset from button position
       gsap.set(modal, {
-        x: buttonCenterX - centerX,
-        y: buttonCenterY - centerY,
+        x: offsetX,
+        y: offsetY,
+        xPercent: -50,
         scaleX: buttonRect.width / modalRect.width,
         scaleY: buttonRect.height / modalRect.height,
         opacity: 0,
@@ -72,6 +78,7 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
       });
 
       gsap.set(backdrop, { opacity: 0 });
+      gsap.set(button, { opacity: 1 }); // Ensure button is visible initially
       if (inputRef.current) {
         gsap.set(inputRef.current, { opacity: 0 });
       }
@@ -79,23 +86,30 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
       // Animate to final state (FLIP: Last)
       const tl = gsap.timeline();
 
-      tl.to(backdrop, {
-        opacity: 1,
+      tl.to(button, {
+        opacity: 0,
+        scale: 0.8,
         duration: 0.2,
         ease: "power2.out",
       })
+        .to(backdrop, {
+          opacity: 1,
+          duration: 0.2,
+          ease: "power2.out",
+        }, "-=0.1")
         .to(
           modal,
           {
             x: 0,
             y: 0,
+            xPercent: -50,
             scaleX: 1,
             scaleY: 1,
             opacity: 1,
             duration: 0.4,
             ease: "power3.out",
           },
-          "-=0.1"
+          "-=0.2"
         )
         .to(
           inputRef.current,
@@ -132,10 +146,15 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
       const buttonCenterX = buttonRect.left + buttonRect.width / 2;
       const buttonCenterY = buttonRect.top + buttonRect.height / 2;
 
+      const offsetX = buttonCenterX - centerX;
+      const offsetY = buttonCenterY - centerY;
+
       const tl = gsap.timeline({
         onComplete: () => {
           setIsOpen(false);
           setSearchQuery("");
+          // Reset button opacity
+          gsap.set(button, { opacity: 1, scale: 1 });
         },
       });
 
@@ -146,8 +165,9 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
         .to(
           modal,
           {
-            x: buttonCenterX - centerX,
-            y: buttonCenterY - centerY,
+            x: offsetX,
+            y: offsetY,
+            xPercent: -50,
             scaleX: buttonRect.width / modalRect.width,
             scaleY: buttonRect.height / modalRect.height,
             opacity: 0,
@@ -163,6 +183,15 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
             duration: 0.2,
           },
           "-=0.2"
+        )
+        .to(
+          button,
+          {
+            opacity: 1,
+            scale: 1,
+            duration: 0.2,
+          },
+          "-=0.1"
         );
     });
   }, []);
@@ -251,7 +280,6 @@ export const NavbarSearch: React.FC<NavbarSearchProps> = ({ posts }) => {
               style={{
                 top: "20%",
                 left: "50%",
-                transform: "translateX(-50%)",
               }}
             >
               {/* Search Input */}

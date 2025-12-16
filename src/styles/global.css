@@ -118,9 +118,17 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-forma-text), system-ui, sans-serif;
+    width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
     /* Improve text rendering for readability */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

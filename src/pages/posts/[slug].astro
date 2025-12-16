@@ -53,6 +53,26 @@ if (!post) {
 const title = post.title.rendered ? post.title.rendered.replace(/http:\/\//g, 'https://') : '';
 let content = post.content.rendered ? post.content.rendered.replace(/http:\/\//g, 'https://') : '';
 
+// Extract description from content (strip HTML tags and get first 160 characters)
+const extractDescription = (html: string): string => {
+  if (!html) return '';
+  // Remove HTML tags and decode common HTML entities
+  let text = html.replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&[^;]+;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Get first 160 characters
+  return text.length > 160 ? text.substring(0, 157) + '...' : text;
+};
+
+const description = extractDescription(content);
+
 // Process images in content to add lazy loading attributes
 if (content) {
   // Add loading="lazy" and decoding="async" to all img tags that don't already have loading attribute
@@ -75,9 +95,21 @@ const date = new Date(post.date).toLocaleDateString('en-US', {
   day: 'numeric' 
 });
 const imageUrl = post._embedded?.['wp:featuredmedia']?.[0]?.source_url?.replace(/^http:\/\//, 'https://') || null;
+
+// SEO data
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
+const postUrl = `${siteUrl}/posts/${slug}`;
 ---
 
-<BaseLayout title={title}>
+<BaseLayout 
+  title={title}
+  description={description}
+  image={imageUrl || undefined}
+  url={postUrl}
+  type="article"
+  publishedTime={post.date}
+  modifiedTime={post.date}
+>
     <div class="flex-1 w-full max-w-5xl mx-auto px-4 py-8" style="contain: layout style paint;">
         <div class="bg-white rounded-lg p-10 border shadow-xl" style="contain: layout style paint;">
             <a 

@@ -2,12 +2,41 @@
 import "../styles/global.css";
 import Font from "astro/components/Font.astro";
 import Navbar from "@/components/Navbar.astro";
+import { SEO } from "astro-seo";
 
 interface Props {
   title?: string;
+  description?: string;
+  image?: string;
+  url?: string;
+  type?: "website" | "article";
+  publishedTime?: string;
+  modifiedTime?: string;
+  author?: string;
 }
 
-const { title = "" } = Astro.props;
+const { 
+  title,
+  description,
+  image,
+  url,
+  type = "website",
+  publishedTime,
+  modifiedTime,
+  author
+} = Astro.props;
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
+const canonicalUrl = url ? `${siteUrl}${url}` : Astro.url.href;
+
+// Default SEO values
+const defaultTitle = "RSI Portfolio - Leo Wen";
+const defaultDescription = "Portfolio showcasing relevant projects and blog posts about RSI-related topics.";
+const defaultImage = `${siteUrl}/og-image.jpg`;
+
+const seoTitle = title || defaultTitle;
+const seoDescription = description || defaultDescription;
+const seoImage = image || defaultImage;
 ---
 
 <!doctype html>
@@ -18,15 +47,39 @@ const { title = "" } = Astro.props;
         <meta name="viewport" content="width=device-width" />
         <meta name="generator" content={Astro.generator} />
         <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
-        <title>{title}</title>
+        <SEO
+          title={seoTitle}
+          description={seoDescription}
+          openGraph={{
+            basic: {
+              title: seoTitle,
+              type: type,
+              image: seoImage,
+              url: canonicalUrl,
+            },
+            ...(type === "article" && {
+              article: {
+                ...(publishedTime && { publishedTime }),
+                ...(modifiedTime && { modifiedTime }),
+                ...(author && { author }),
+              }
+            })
+          }}
+          twitter={{
+            card: "summary_large_image",
+            image: seoImage,
+            title: seoTitle,
+            description: seoDescription,
+          }}
+        />
     </head>
     <body
-        class="w-full h-full min-h-screen min-w-screen overflow-hidden m-0 p-0"
+        class="w-full min-h-screen overflow-x-hidden m-0 p-0"
     >
-        <div class="w-full h-full">
-            <Navbar client:load />
-            
-            <div class="absolute w-full h-screen inset-0 flex flex-col z-40 pt-[73px] overflow-y-auto">
+        <div class="w-full min-h-screen relative">
+            <Navbar />
+
+            <div class="w-full min-h-screen flex flex-col overflow-y-auto overflow-x-hidden">
                 <slot />
             </div>
         </div>

@@ -5,12 +5,13 @@ const posts = await fetchPosts();
 const processedPosts = processPosts(posts);
 ---
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-2" style="contain: layout style paint;">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 p-2" style="contain: layout style paint;">
   {processedPosts.map((post) => (
     <article 
       class="post-card cursor-pointer border rounded-lg p-4 bg-white flex flex-col transition-all duration-150 ease-out"
       style="will-change: transform, opacity; transform: translateZ(0); contain: layout style paint;"
     >
+      <span class="text-sm opacity-70">{post.date}</span>
       <a 
         href={`/posts/${encodeURIComponent(post.slug)}`}
         class="flex flex-col grow no-underline text-inherit"
@@ -31,7 +32,6 @@ const processedPosts = processPosts(posts);
           </div>
         )}
         <div class="flex flex-col grow">
-          <span class="text-sm opacity-70">{post.date}</span>
           <h2 class="text-xl font-bold" set:html={post.title} />
           <div class="text-sm opacity-90" set:html={post.excerpt} />
           <span class="mt-auto text-blue-400 inline-block">

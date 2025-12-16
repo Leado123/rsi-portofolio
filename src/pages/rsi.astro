@@ -1,17 +1,23 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import SplitText from "@/components/SplitText.tsx";
-import { NavGrid } from "@/components/NavGrid.tsx";
+import SplitText from "@/components/SplitText.astro";
+import NavGrid from "@/components/NavGrid.astro";
 import { AnimatedTitle } from "@/components/AnimatedTitle.tsx";
 import { AnimatedDescription } from "@/components/AnimatedDescription.tsx";
 import PostGrid from "@/components/PostGrid.astro";
 import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
 ---
 
-<BaseLayout>
+<BaseLayout 
+  title="RSI Portfolio - Projects & Blog Posts"
+  description="You can access my relevant projects at the top of my portfolio, however if you want to go in depth into each project, I recommend you read the posts below that are pinned about each relevant topic."
+  url="/rsi"
+>
     <div
         id="animated-background"
-        class="fixed inset-0 w-screen h-screen min-h-screen min-w-screen z-0 pointer-events-none"
+        class="fixed inset-0 w-full h-full min-h-screen z-0 pointer-events-none"
         style="view-transition-name: background;"
     >
         <AnimatedColorBends
@@ -38,26 +44,20 @@ import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
         />
     </div>
     <div
-        class="p-4 pl-8 pr-8 bg-[0,0,0,.5] w-full flex flex-col items-end backdrop-blur-lg border-b-2 shadow-lg"
+        class="p-4 pl-6 pr-6 bg-[0,0,0,.5] w-full flex flex-col items-end backdrop-blur-lg border-b-2 shadow-lg"
     >
         <div class="text-right min-h-8">
             <SplitText
-                client:only
-                delay={100}
-                duration={0.6}
-                ease="power3.out"
-                splitType="chars"
-                from={{ opacity: 0, y: 40 }}
-                to={{ opacity: 1, y: 0 }}
-                threshold={0.1}
-                className="w-full text-right"
                 text="Quick links from portfolio"
+                className="w-full text-right"
+                tag="p"
+                textAlign="right"
             />
         </div>
-        <NavGrid client:load />
+        <NavGrid />
     </div>
     <div class="prose w-full max-w-none p-4">
-        <div class="mb-8 h-2/3 flex justify-center" style="min-height: 200px;">
+        <div class="mb-8 h-1/3 flex justify-center" style="min-height: 200px;">
             <AnimatedTitle client:visible>
                 <text
                     style="font-family: var(--font-forma-display);"
@@ -70,6 +70,6 @@ import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
                 </AnimatedDescription>
             </AnimatedTitle>
         </div>
-        <PostGrid client:idle/>
+        <PostGrid/>
     </div>
 </BaseLayout>

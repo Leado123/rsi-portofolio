@@ -25,7 +25,7 @@ export const AnimatedColorBends: React.FC<AnimatedColorBendsProps> = (props) => 
         ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
       }}
       style={{ willChange: "opacity" }}
-      className="w-full h-full"
+      className="w-full h-dvw"
     >
       <ColorBends {...props} />
     </motion.div>

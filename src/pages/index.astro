@@ -3,12 +3,18 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import PostGrid from "@/components/PostGrid.astro";
 import { SearchPosts } from "@/components/SearchPosts.tsx";
 import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
 ---
 
-<BaseLayout>
+<BaseLayout 
+  title="RSI Portfolio - Leo Wen"
+  description="Browse blog posts and articles about RSI-related topics and projects."
+  url="/"
+>
     <div
         id="animated-background"
-        class="fixed inset-0 w-screen h-screen min-h-screen min-w-screen z-0 pointer-events-none"
+        class="fixed inset-0 w-full h-screen min-h-dvh z-0 pointer-events-none"
         style="view-transition-name: background;"
     >
         <AnimatedColorBends
@@ -33,6 +39,10 @@ import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
             noise={0.1}
             transparent={true}
         />
+    </div>
+    <div class="z-100 min-h-1/4 gap-2 flex flex-col text-center justify-center place-items-center pt-8 pb-8">
+        <h1 class="text-5xl font-bold">Leo Wen's Blog</h1>
+        <p class="max-w-1/3 text-gray-700">My name is Leo Wen, and I am from Southern California. This blog is an archive for my various writings and notes. I am currently a junior in high school studying to become a researcher in bioinformatics or genetic engineering.        </p>
     </div>
     <div class="prose w-full max-w-none p-4">
         <PostGrid />

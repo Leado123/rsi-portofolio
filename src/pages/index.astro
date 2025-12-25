@@ -4,6 +4,8 @@ import PostGrid from "@/components/PostGrid.astro";
 import { SearchPosts } from "@/components/SearchPosts.tsx";
 import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
 
+export const prerender = false;
+
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
 ---
 

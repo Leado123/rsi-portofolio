@@ -7,80 +7,342 @@ import { AnimatedDescription } from "@/components/AnimatedDescription.tsx";
 import PostGrid from "@/components/PostGrid.astro";
 import { AnimatedColorBends } from "@/components/AnimatedColorBends.tsx";
 import PostList from "@/components/PostList.astro";
+import { RepositoryLinks } from "@/components/RepositoryLinks.tsx";
+import { LinkWithHover } from "@/components/LinkWithHover";
+import { fetchPosts, processPosts } from "../utils/posts.ts";
+
+export const prerender = false;
 
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
+
+// Fetch and filter posts with "science" tag
+const posts = await fetchPosts();
+const processedPosts = processPosts(posts);
+const sciencePosts = processedPosts.filter(post => post.tags.includes('science'));
 ---
 
-<BaseLayout 
+<BaseLayout
   title="RSI Portfolio - Projects & Blog Posts"
   description="You can access my relevant projects at the top of my portfolio, however if you want to go in depth into each project, I recommend you read the posts below that are pinned about each relevant topic."
   url="/rsi"
 >
-    <div
-        id="animated-background"
-        class="fixed inset-0 w-full h-full min-h-screen z-0 pointer-events-none"
-        style="view-transition-name: background;"
-    >
-        <AnimatedColorBends
-            client:load
-            colors={[
-                "#ff1493",
-                "#00ff88",
-                "#00d4ff",
-                "#ff6b00",
-                "#ff00ff",
-                "#00ffff",
-                "#ffff00",
-                "#ff0080",
-            ]}
-            rotation={30}
-            speed={0.2}
-            scale={1.0}
-            frequency={1.5}
-            warpStrength={1.2}
-            mouseInfluence={1.0}
-            parallax={0.8}
-            noise={0.1}
-            transparent={true}
-        />
+  <div
+    id="animated-background"
+    class="fixed inset-0 w-full h-full min-h-screen z-0 pointer-events-none"
+    style="view-transition-name: background;"
+  >
+    <AnimatedColorBends
+      client:load
+      colors={[
+        "#ff1493",
+        "#00ff88",
+        "#00d4ff",
+        "#ff6b00",
+        "#ff00ff",
+        "#00ffff",
+        "#ffff00",
+        "#ff0080",
+      ]}
+      rotation={30}
+      speed={0.2}
+      scale={1.0}
+      frequency={1.5}
+      warpStrength={1.2}
+      mouseInfluence={1.0}
+      parallax={0.8}
+      noise={0.1}
+      transparent={true}
+    />
+  </div>
+  <div
+    class="p-4 pl-6 pr-6 bg-[0,0,0,.5] w-full flex flex-col items-end backdrop-blur-lg border-b-2 shadow-lg"
+  >
+    <div class="text-right min-h-8">
+      <SplitText
+        text="Quick links from portfolio"
+        className="w-full text-right"
+        tag="p"
+        textAlign="right"
+      />
     </div>
-    <div
-        class="p-4 pl-6 pr-6 bg-[0,0,0,.5] w-full flex flex-col items-end backdrop-blur-lg border-b-2 shadow-lg"
-    >
-        <div class="text-right min-h-8">
-            <SplitText
-                text="Quick links from portfolio"
-                className="w-full text-right"
-                tag="p"
-                textAlign="right"
+    <NavGrid />
+  </div>
+  <div class="prose w-full max-w-none p-4">
+    <div class="mb-8 h-1/3 flex justify-center" style="min-height: 200px;">
+      <div class="flex flex-col md:flex-row w-full">
+        <div class="flex-1 flex">
+          <AnimatedTitle client:visible>
+            <text
+              style="font-family: var(--font-forma-display);"
+              class="text-center flex text-black font-black justify-center place-items-center text-6xl w-full"
+            >
+              RSI Portfolio</text
+            >
+            <AnimatedDescription client:idle>
+              You can access my relevant projects at the top of my portfolio,
+              however if you want to go in depth into each project, I recommend
+              you read the posts below that are pinned about each relevant
+              topic.
+            </AnimatedDescription>
+          </AnimatedTitle>
+        </div>
+        <div class="md:w-1/3 w-full mt-4 md:mt-0">
+          <PostList />
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div
+        class="min-h-50 p-4 gap-4 rounded-2xl flex bg-yellow-100 shadow-inner"
+      >
+        <!-- Large imageful post card on the left -->
+        <a
+          href="/posts/how-is-sharesyllabus-supposed-to-work"
+          class="block rounded-xl overflow-hidden shadow-md bg-white hover:shadow-xl transition-shadow border border-gray-200 w-2/5 shrink-0"
+        >
+          <div
+            class="flex flex-col w-full bg-white/90 backdrop-blur-sm rounded-xl"
+          >
+            <!-- Image section -->
+            <img
+              src="https://wordpress.leowen.me/wp-content/uploads/2025/12/image-1.png"
+              alt="How is sharesyllabus supposed to work"
+              class="h-40 md:h-auto object-cover"
+              style="min-width: 180px; "
+              loading="lazy"
             />
-        </div>
-        <NavGrid />
-    </div>
-    <div class="prose w-full max-w-none p-4">
-        <div class="mb-8 h-1/3 flex justify-center" style="min-height: 200px;">
-            <div class="flex flex-col md:flex-row w-full">
-                <div class="flex-1 flex">
-                    <AnimatedTitle client:visible>
-                        <text
-                            style="font-family: var(--font-forma-display);"
-                            class="text-center flex text-black font-black justify-center place-items-center text-6xl w-full"
-                        >
-                            RSI Portfolio</text
-                        >
-                        <AnimatedDescription client:idle>
-                            You can access my relevant projects at the top of my portfolio, however if you want to go in depth into each project, I recommend you read the posts below that are pinned about each relevant topic.
-                        </AnimatedDescription>
-                    </AnimatedTitle>
-                </div>
-                <div class="md:w-1/3 w-full mt-4 md:mt-0">
-                    <PostList/>
-                </div>
+            <div class="flex-1 p-4 gap-2 flex flex-col justify-center">
+              <div class="flex gap-2 items-center mb-2">
+                <span
+                  class="text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded"
+                  >Sharesyllabus</span
+                >
+                <span class="text-xs text-gray-500">4/30/2023</span>
+              </div>
+              <text class="text-2xl font-extrabold text-black"
+                >How is sharesyllabus supposed to work</text
+              >
+              <p class="text-gray-700 mt-0 text-base">
+                Explains how Sharesyllabus was designed to let you browse and
+                compare real-world course syllabi — making class registration
+                more transparent and competitive.
+              </p>
             </div>
+          </div>
+        </a>
+
+        <!-- Right side: Title, description, links, then smaller post card -->
+        <div class="flex-1 prose prose-neutral min-w-0 flex flex-col">
+          <h1 class="text-2xl font-bold mb-3 mt-0">Sharesyllabus.me</h1>
+          <p class="mb-4">
+            Sharesyllabus.me was a website I made that would allow you to
+            explore classes to take by looking at syllabi. It would have
+            competed against Rate My Professor, but it is archived now, located
+            at <a href="https://Leado123.github.io" target="_blank"
+              >Leado123.github.io</a
+            >.
+          </p>
+          <div class="flex flex-col gap-2 not-prose mb-4">
+            <LinkWithHover
+                client:load
+                url="https://Leado123.github.io"
+                title="ShareSyllabus.me's website"
+                description="This website used to be hosted at sharesyllabus.me, but that domain is expired for me"
+                height="50px"
+            />
+            <LinkWithHover
+              client:load
+              url="https://git.leowen.me/liyaowhen/Leado123.github.io"
+              title="sharesyllabus.me's frontend repository"
+              description="Click to open repository"
+              height="50px"
+            />
+            <LinkWithHover
+              client:load
+              url="https://git.leowen.me/liyaowhen/sharesyllabus-server"
+              title="sharesyllabus.me's backend repository"
+              description="Click to open repository"
+              height="25px"
+            />
+          </div>
+          
+          <!-- Smaller imageless post card underneath -->
+          <a
+            href="/posts/sharesyllabus-mes-immaculate-conception"
+            class="block flex-1 rounded-xl overflow-hidden shadow-md bg-white hover:shadow-xl transition-shadow border border-gray-200 p-4 not-prose"
+          >
+            <div class="flex flex-col">
+              <div class="flex gap-2 items-center mb-1">
+                <span
+                  class="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
+                  >Sharesyllabus</span
+                >
+                <span class="text-xs text-gray-500">5/2/2023</span>
+              </div>
+              <text class="text-lg font-semibold text-black mb-1"
+                >ShareSyllabus.me's Immaculate Conception</text
+              >
+              <p class="text-gray-700 mt-0 text-sm">
+                A post explaining the full story of how I created
+                sharesyllabus.me in the first place. <bold class="font-bold text-black underline">Does not go into detail on
+                the architecture or design. Read the other post if you want to know more about functionality</bold>
+              </p>
+            </div>
+          </a>
         </div>
-        <div class="h-1/5">
-            <p></p>
+      </div>
+      <div
+        class="min-h-50 p-4 gap-4 rounded-2xl flex flex-wrap bg-green-100 shadow-inner"
+      >
+        <div class="prose prose-neutral flex-[0_1_280px] min-w-[200px] max-w-[320px] shrink-0">
+          <h1 class="text-green-950 font-extrabold text-4xl mb-3 mt-0">Science Stuff</h1>
+          <p class="mb-4">
+            In middle school I did a science experiment experimenting on the effects of electricity on plant growth.
+            The results were weird, so in winter 2025 I decided to redo the experiments but with a tissue culture & rigourous quantitative approach.
+             Also, I tinkered with UseGalaxy and some Jupyter Notebook to <a href="/posts/visualizing-the-human-genome-in-comparison-with-other-hominids-and-other-animals">
+                make some visualizations to compare genomes.</a>
+          </p>
+          <div class="flex flex-col gap-3 not-prose">
+            <LinkWithHover
+              client:load
+              url="https://docs.google.com/document/d/1SH4F4KhQtrTVCPl4Z5EA3FG6XQIrcaoeccbHVuNsV5Q/edit?tab=t.0"
+              title="'Electricity and the growth of plants: How does electricity affect the growth of plants?'"
+              description="May be missing stuff, but it is the best copy of my finalized project I could find."
+              height="50px"
+            />
+            <LinkWithHover
+              client:load
+              url="https://git.leowen.me/liyaowhen/plt_annotated_genome_comparison"
+              title="Dot plot of genome comparison source code"
+              description="Click to open repository"
+              height="25px"
+            />
+          </div>
         </div>
-        <PostGrid/>
+        {sciencePosts.length > 0 && (
+          <div class="flex-[1_1_250px] min-w-[200px]">
+            <div class="science-posts-gallery" style="contain: layout style paint;">
+              {sciencePosts.map((post, index) => {
+                // Truncate excerpt to ~30 characters
+                let truncatedExcerpt = post.excerpt.replace(/<[^>]*>/g, ''); // Remove HTML tags
+                truncatedExcerpt = truncatedExcerpt.trim();
+                if (truncatedExcerpt.length > 30) {
+                  truncatedExcerpt = truncatedExcerpt.substring(0, 30).trim() + '...';
+                }
+                
+                return (
+                <article 
+                  class="science-post-card cursor-pointer border rounded-lg p-2 bg-white hover:bg-white flex flex-col transition-all duration-150 ease-out"
+                  style={`will-change: transform, opacity; transform: translateZ(0); contain: layout style paint;`}
+                >
+                  <span class="text-xs opacity-70 mb-1">{post.date}</span>
+                  <a 
+                    href={`/posts/${encodeURIComponent(post.slug)}`}
+                    class="flex flex-col grow no-underline text-inherit"
+                    data-astro-prefetch="hover"
+                  >
+                    {post.imageUrl && (
+                      <div class="w-full h-28 rounded-md overflow-hidden relative bg-gray-100 shrink-0 mb-1.5" style="contain: layout style paint;">
+                        <img 
+                          src={post.imageUrl}
+                          alt={post.title || 'Post image'}
+                          width={post.imageWidth}
+                          height={post.imageHeight}
+                          class="absolute inset-0 w-full h-full object-cover object-center"
+                          loading="lazy"
+                          decoding="async"
+                          style="display: block; margin: 0; padding: 0; vertical-align: top; will-change: transform;"
+                        />
+                      </div>
+                    )}
+                    <div class="flex flex-col grow">
+                      <h3 class="text-sm font-bold line-clamp-2 mb-0.5" set:html={post.title} />
+                      <p class="text-xs opacity-90 mb-1 leading-tight">{truncatedExcerpt}</p>
+                      <span class="mt-auto text-green-600 text-xs inline-block">
+                        Read more &rarr;
+                      </span>
+                    </div>
+                  </a>
+                </article>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
+  </div>
 </BaseLayout>
+
+<style>
+  /* Science posts gallery - optimized grid to minimize height */
+  .science-posts-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+    align-items: start;
+    grid-auto-rows: min-content;
+  }
+  
+  .science-post-card {
+    position: relative;
+    width: 100%;
+    height: fit-content;
+    break-inside: avoid;
+  }
+  
+  /* Optimize for different screen sizes - minimize height */
+  @media (min-width: 640px) {
+    .science-posts-gallery {
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 0.5rem;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .science-posts-gallery {
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 0.5rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .science-posts-gallery {
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 0.625rem;
+    }
+  }
+  
+  .science-post-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: rgb(243, 244, 246);
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+    pointer-events: none;
+    border-radius: 0.5rem;
+    z-index: 0;
+  }
+  
+  .science-post-card:hover::before {
+    opacity: 1;
+  }
+  
+  .science-post-card > a {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .science-post-card:hover {
+    transform: translateY(-1px) translateZ(0);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Optimize image rendering */
+  .science-post-card img {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+</style>

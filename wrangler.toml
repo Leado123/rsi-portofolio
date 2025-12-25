@@ -1,0 +1,4 @@
+[site]
+bucket = "./dist"  # or wherever your built files are
+[assets]
+directory = "./dist"

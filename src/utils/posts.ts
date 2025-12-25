@@ -31,6 +31,7 @@ export interface ProcessedPost {
   imageHeight: number;
   link: string;
   categories: string[];
+  tags: string[];
 }
 
 export async function fetchPosts(): Promise<Post[]> {
@@ -59,6 +60,8 @@ export function processPosts(posts: Post[]): ProcessedPost[] {
 
     // Extract categories from wp:term taxonomy
     const categories = post._embedded?.['wp:term']?.flat().filter(term => term.taxonomy === 'category').map(term => term.name) || [];
+    // Extract tags from wp:term taxonomy
+    const tags = post._embedded?.['wp:term']?.flat().filter(term => term.taxonomy === 'post_tag').map(term => term.name) || [];
 
     return {
       id: post.id,
@@ -71,6 +74,7 @@ export function processPosts(posts: Post[]): ProcessedPost[] {
       imageHeight: post._embedded?.['wp:featuredmedia']?.[0]?.media_details?.height || 600,
       link: post.link,
       categories,
+      tags,
     };
   });
 }

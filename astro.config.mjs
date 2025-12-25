@@ -15,9 +15,9 @@ const TYPEKIT_ID = env.TYPEKIT_ID;
 export default defineConfig({
   integrations: [react(), (await import("@playform/compress")).default()],
   prefetch: {
-    prefetchAll: true
+    defaultStrategy: 'load'
   },
-  base: '/',
+
 
   experimental: {
     fonts: TYPEKIT_ID ? [{
@@ -35,11 +35,13 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     build: {
-      cssCodeSplit: false,
-      cssMinify: true
+      rollupOptions: {
+        external: ['sharp']
+      }
     }
   },
 
+  output: 'server',
   adapter: node({
     mode: 'standalone'
   })

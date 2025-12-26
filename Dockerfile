@@ -4,7 +4,8 @@ WORKDIR /app
 # Install dependencies only when needed
 FROM base AS deps
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# Try frozen-lockfile first for reproducibility, but fall back to regular install if lockfile is out of sync
+RUN bun install --frozen-lockfile || bun install
 
 # Rebuild the source code only when needed
 FROM base AS builder

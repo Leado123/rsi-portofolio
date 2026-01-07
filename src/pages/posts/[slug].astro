@@ -11,6 +11,7 @@ interface Post {
   date: string;
   content: { rendered: string };
   link: string;
+  slug: string;
   _embedded?: {
     'wp:featuredmedia'?: Array<{
       source_url: string;
@@ -87,6 +88,59 @@ if (content) {
       return `<img ${attrs} loading="lazy" decoding="async">`;
     }
   );
+  
+  // Wrap consecutive image blocks (2+) in a 2-column grid
+  // Matches: <figure>, <div class="wp-block-image">, or <p> containing only an image
+  const imageBlockPattern = /(<figure[^>]*>[\s\S]*?<\/figure>|<div[^>]*class="[^"]*wp-block-image[^"]*"[^>]*>[\s\S]*?<\/div>|<p[^>]*>\s*<img[^>]*(?:\/>|>)\s*<\/p>)/gi;
+  
+  // Find all image blocks with their positions
+  const imageBlocks: { content: string; start: number; end: number }[] = [];
+  let blockMatch;
+  const patternCopy = new RegExp(imageBlockPattern.source, imageBlockPattern.flags);
+  while ((blockMatch = patternCopy.exec(content)) !== null) {
+    imageBlocks.push({
+      content: blockMatch[0],
+      start: blockMatch.index,
+      end: blockMatch.index + blockMatch[0].length
+    });
+  }
+  
+  // Group consecutive image blocks (only whitespace between them)
+  if (imageBlocks.length >= 2) {
+    const groups: typeof imageBlocks[] = [];
+    let currentGroup: typeof imageBlocks = [imageBlocks[0]];
+    
+    for (let i = 1; i < imageBlocks.length; i++) {
+      const prev = imageBlocks[i - 1];
+      const curr = imageBlocks[i];
+      const between = content.substring(prev.end, curr.start).trim();
+      
+      // Check if only whitespace between blocks
+      if (between === '') {
+        currentGroup.push(curr);
+      } else {
+        if (currentGroup.length >= 2) {
+          groups.push([...currentGroup]);
+        }
+        currentGroup = [curr];
+      }
+    }
+    if (currentGroup.length >= 2) {
+      groups.push(currentGroup);
+    }
+    
+    // Wrap groups in grid (process in reverse to preserve indices)
+    for (let i = groups.length - 1; i >= 0; i--) {
+      const group = groups[i];
+      const start = group[0].start;
+      const end = group[group.length - 1].end;
+      const groupContent = content.substring(start, end);
+      
+      const gridWrapper = `<div class="image-grid grid grid-cols-1 sm:grid-cols-2 gap-4 my-6 not-prose [&>figure]:m-0 [&>figure]:overflow-hidden [&>figure]:rounded-lg [&>figure>img]:w-full [&>figure>img]:h-auto [&>figure>figcaption]:text-sm [&>figure>figcaption]:text-center [&>figure>figcaption]:text-gray-600 [&>figure>figcaption]:mt-2 [&>p]:m-0 [&>div]:m-0">${groupContent}</div>`;
+      
+      content = content.substring(0, start) + gridWrapper + content.substring(end);
+    }
+  }
 }
 
 const date = new Date(post.date).toLocaleDateString('en-US', { 
@@ -95,6 +149,25 @@ const date = new Date(post.date).toLocaleDateString('en-US', {
   day: 'numeric' 
 });
 const imageUrl = post._embedded?.['wp:featuredmedia']?.[0]?.source_url?.replace(/^http:\/\//, 'https://') || null;
+
+// Fetch recommended posts (recent posts excluding current one)
+let recommendedPosts: Post[] = [];
+try {
+  const recommendedUrl = `${WORDPRESS_API_URL}/wp-json/wp/v2/posts?per_page=3&_embed&exclude=${post.id}`;
+  const recommendedRes = await fetch(recommendedUrl);
+  if (recommendedRes.ok) {
+    const posts: Post[] = await recommendedRes.json();
+    recommendedPosts = posts
+      .filter(p => p.id !== post.id)
+      .slice(0, 3)
+      .map(p => ({
+        ...p,
+        slug: p.slug || p.link.split('/').filter(Boolean).pop() || ''
+      }));
+  }
+} catch (error) {
+  console.error('Error fetching recommended posts:', error);
+}
 
 // SEO data
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || Astro.url.origin;
@@ -110,22 +183,70 @@ const postUrl = `${siteUrl}/posts/${slug}`;
   publishedTime={post.date}
   modifiedTime={post.date}
 >
+    <style is:global>
+        /* WordPress Gutenberg column blocks - 2 column grid */
+        article.prose .wp-block-columns,
+        article.prose [class*="wp-block-columns"] {
+            display: grid !important;
+            grid-template-columns: repeat(1, 1fr) !important;
+            gap: 1rem !important;
+            margin: 1.5rem 0 !important;
+            flex-direction: unset !important;
+            flex-wrap: unset !important;
+        }
+        @media (min-width: 640px) {
+            article.prose .wp-block-columns,
+            article.prose [class*="wp-block-columns"] {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+        article.prose .wp-block-columns .wp-block-column,
+        article.prose [class*="wp-block-columns"] [class*="wp-block-column"] {
+            margin: 0 !important;
+            padding: 0 !important;
+            flex-basis: unset !important;
+            flex-grow: unset !important;
+        }
+        article.prose .wp-block-columns .wp-block-image,
+        article.prose [class*="wp-block-columns"] .wp-block-image,
+        article.prose .wp-block-columns figure,
+        article.prose [class*="wp-block-columns"] figure {
+            margin: 0 !important;
+        }
+        article.prose .wp-block-columns img,
+        article.prose [class*="wp-block-columns"] img {
+            width: 100% !important;
+            height: auto !important;
+            border-radius: 0.5rem;
+            object-fit: cover;
+        }
+        article.prose .wp-block-columns figcaption,
+        article.prose [class*="wp-block-columns"] figcaption,
+        article.prose .wp-block-columns .wp-element-caption,
+        article.prose [class*="wp-block-columns"] .wp-element-caption {
+            font-size: 0.875rem !important;
+            text-align: center !important;
+            color: #4b5563 !important;
+            margin-top: 0.5rem !important;
+        }
+    </style>
     <div class="flex-1 w-full max-w-5xl mx-auto px-4 py-8" style="contain: layout style paint;">
         <div class="bg-white rounded-lg p-10 border shadow-xl" style="contain: layout style paint;">
-            <a 
-                href="/" 
+            <a
+                href="#"
+                onclick="if(document.referrer){window.history.back();return false;}else{window.location.href='/' ;return false;}"
                 class="text-blue-500 hover:text-blue-700 mb-4 inline-block no-underline pointer-events-auto z-10 relative"
                 data-astro-prefetch="hover"
             >
-                ← Back to posts
+                ← Back
             </a>
-            
+            <h1 class="text-4xl font-bold pb-4" set:html={title}></h1>
             {imageUrl && (
                 <div class="w-full mb-6 rounded-lg overflow-hidden bg-gray-100">
                     <img 
                         src={imageUrl}
                         alt={title}
-                        class="w-full h-auto object-cover"
+                        class="w-full h-[400px] object-cover"
                         loading="eager"
                         decoding="async"
                         fetchpriority="high"
@@ -137,7 +258,6 @@ const postUrl = `${siteUrl}/posts/${slug}`;
             
             <article class="prose prose-xl prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-800 prose-p:text-lg prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-code:text-gray-800 prose-pre:bg-gray-100 max-w-none" style="contain: layout style paint; will-change: scroll-position;">
                 <header class="mb-8">
-                    <h1 set:html={title}></h1>
                     <time class="text-sm text-gray-600 not-prose" datetime={post.date}>
                         {date}
                     </time>
@@ -218,16 +338,56 @@ const postUrl = `${siteUrl}/posts/${slug}`;
                 })();
             </script>
             
-            <div class="mt-8 pt-6 border-t not-prose">
-                <a 
-                    href={post.link} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    class="text-blue-500 hover:text-blue-700 no-underline"
-                >
-                    View original post →
-                </a>
-            </div>
+            {recommendedPosts.length > 0 && (
+                <section class="mt-12 pt-8 border-t border-gray-200">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-900">Recommended Posts</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {recommendedPosts.map((recPost) => {
+                            const recImageUrl = recPost._embedded?.['wp:featuredmedia']?.[0]?.source_url?.replace(/^http:\/\//, 'https://') || null;
+                            const recTitle = recPost.title.rendered ? recPost.title.rendered.replace(/http:\/\//g, 'https://') : '';
+                            const recSlug = recPost.slug || recPost.link.split('/').filter(Boolean).pop() || '';
+                            const recDate = new Date(recPost.date).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                            });
+                            const recDescription = extractDescription(recPost.content.rendered || '');
+                            
+                            return (
+                                <a 
+                                    href={`/posts/${recSlug}`}
+                                    class="block bg-white rounded-lg border border-gray-200 hover:border-blue-500 hover:shadow-lg transition-all duration-200 overflow-hidden group"
+                                    data-astro-prefetch="hover"
+                                >
+                                    {recImageUrl && (
+                                        <div class="w-full h-48 overflow-hidden bg-gray-100">
+                                            <img 
+                                                src={recImageUrl}
+                                                alt={recTitle}
+                                                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                loading="lazy"
+                                                decoding="async"
+                                                width="400"
+                                                height="300"
+                                            />
+                                        </div>
+                                    )}
+                                    <div class="p-4">
+                                        <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors" set:html={recTitle}></h3>
+                                        {recDescription && (
+                                            <p class="text-sm text-gray-600 mb-3 line-clamp-2">{recDescription}</p>
+                                        )}
+                                        <time class="text-xs text-gray-500" datetime={recPost.date}>
+                                            {recDate}
+                                        </time>
+                                    </div>
+                                </a>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+            
         </div>
     </div>
 </BaseLayout>

@@ -98,7 +98,7 @@ export const AnimatedPostGrid: React.FC<AnimatedPostGridProps> = ({ posts }) => 
                 href={postLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="mt-2 text-blue-400 hover:text-blue-300 inline-block"
+                className="mt-2 text-blue-600 hover:text-blue-700 inline-block"
               >
                 Read more &rarr;
               </a>

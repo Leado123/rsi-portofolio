@@ -5,7 +5,7 @@ const posts = await fetchPosts();
 const processedPosts = processPosts(posts);
 ---
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 p-2" style="contain: layout style paint;">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 p-2 not-prose" style="contain: layout style paint;">
   {processedPosts.map((post) => (
     <article 
       class="post-card cursor-pointer border rounded-lg p-4 bg-white flex flex-col transition-all duration-150 ease-out"
@@ -34,7 +34,7 @@ const processedPosts = processPosts(posts);
         <div class="flex flex-col grow">
           <h2 class="text-xl font-bold" set:html={post.title} />
           <div class="text-sm opacity-90" set:html={post.excerpt} />
-          <span class="mt-auto text-blue-400 inline-block">
+          <span class="mt-auto text-blue-600 inline-block">
             Read more &rarr;
           </span>
         </div>
@@ -79,5 +79,38 @@ const processedPosts = processPosts(posts);
   .post-card img {
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
+  }
+  
+  /* Remove excess vertical spacing from prose elements inside post cards */
+  .post-card p,
+  .post-card h1,
+  .post-card h2,
+  .post-card h3,
+  .post-card h4,
+  .post-card h5,
+  .post-card h6,
+  .post-card ul,
+  .post-card ol,
+  .post-card li,
+  .post-card blockquote {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* Ensure excerpt content container has no extra spacing */
+  .post-card > a > div > div.text-sm {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  
+  /* Remove margins from all direct children of excerpt div */
+  .post-card > a > div > div.text-sm > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* Add minimal spacing only between sibling elements in excerpt */
+  .post-card > a > div > div.text-sm > * + * {
+    margin-top: 0.25rem;
   }
 </style>

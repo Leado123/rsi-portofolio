@@ -15,7 +15,8 @@ const TYPEKIT_ID = env.TYPEKIT_ID;
 export default defineConfig({
   integrations: [react(), (await import("@playform/compress")).default()],
   prefetch: {
-    defaultStrategy: 'load'
+    prefetchAll: true,
+    defaultStrategy: 'hover'
   },
 
 
